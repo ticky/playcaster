@@ -10,13 +10,9 @@ chrono = "0.4.19"
 env_logger = "0.9.0"
 hhmmss = "0.1.0"
 log = "0.4.14"
-serde_json = "1.0.74"
-
-[dependencies.rss]
-version = "2.0"
-features = ["validation"]
-
-[dependencies.youtube_dl]
-version = "0.7.0"
-default_features = false
-features = ["yt-dlp"]
+rss = { version = "2.0", features = ["validation"] }
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+toml = "0.5"
+youtube_dl = { version = "0.7.0", default_features = false, features = ["yt-dlp"] }

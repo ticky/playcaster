@@ -73,7 +73,7 @@ fn rss_channel_from(target_url: String, limit: u64) -> rss::Channel {
                             .build();
 
                     let item_enclosure = rss::EnclosureBuilder::default()
-                        .url(format!("http://localhost/{}.mp4", video.id)) // TODO: This has to be absolute!
+                        .url(format!("http://192.168.1.193:8000/{}.mp4", video.id)) // TODO: This has to be absolute!
                         .length((video.filesize_approx.unwrap_or(0.0) as u64).to_string())
                         .mime_type("video/mp4")
                         .build();
@@ -110,7 +110,10 @@ fn main() {
     // let target_url = "https://www.twitch.tv/zandravandra/videos";
     let target_url = "https://www.youtube.com/c/mightycarmods";
 
-    print!("{:#?}", rss_channel_from(target_url.to_string(), 10));
+    print!(
+        "{}",
+        rss_channel_from(target_url.to_string(), 10).to_string()
+    );
 }
 
 #[test]
