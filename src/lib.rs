@@ -5,7 +5,7 @@ const DEFAULT_LIMIT: usize = 50;
 
 /// Represents a given RSS channel, which points at a video feed.
 pub struct Channel {
-    name: String,
+    path: String, // TODO: Make this a PathBuf
     playlist_url: String,
     hostname: String,
     limit: usize,
@@ -13,12 +13,11 @@ pub struct Channel {
 }
 
 // TODO:
-// - Update method which looks at existing episodes to adjust
-// - Write channel to disk
-// - Download specific episodes
+// - Ignore existing episodes (by date?)
+// - Delete old episodes
 impl Channel {
     pub fn new_with_limit_and_reader<T: std::io::BufRead>(
-        name: String,
+        path: String,
         playlist_url: String,
         hostname: String,
         limit: usize,
@@ -30,7 +29,7 @@ impl Channel {
         };
 
         Self {
-            name,
+            path,
             playlist_url,
             hostname,
             limit,
@@ -39,22 +38,27 @@ impl Channel {
     }
 
     pub fn new_with_reader<T: std::io::BufRead>(
-        name: String,
+        path: String,
         playlist_url: String,
         hostname: String,
         reader: T,
     ) -> Self {
-        Self::new_with_limit_and_reader(name, playlist_url, hostname, DEFAULT_LIMIT, reader)
+        Self::new_with_limit_and_reader(path, playlist_url, hostname, DEFAULT_LIMIT, reader)
     }
 
-    pub fn new_with_limit(name: String, playlist_url: String, hostname: String, limit: usize) -> Self {
-        match std::fs::File::open(format!("{}.rss", name)) {
+    pub fn new_with_limit(
+        path: String,
+        playlist_url: String,
+        hostname: String,
+        limit: usize,
+    ) -> Self {
+        match std::fs::File::open(format!("{}.rss", path)) {
             Ok(file) => {
                 let reader = std::io::BufReader::new(file);
-                Self::new_with_limit_and_reader(name, playlist_url, hostname, limit, reader)
+                Self::new_with_limit_and_reader(path, playlist_url, hostname, limit, reader)
             }
             Err(_) => Self {
-                name,
+                path,
                 playlist_url,
                 hostname,
                 limit,
@@ -63,8 +67,8 @@ impl Channel {
         }
     }
 
-    pub fn new(name: String, playlist_url: String, hostname: String) -> Self {
-        Self::new_with_limit(name, playlist_url, hostname, DEFAULT_LIMIT)
+    pub fn new(path: String, playlist_url: String, hostname: String) -> Self {
+        Self::new_with_limit(path, playlist_url, hostname, DEFAULT_LIMIT)
     }
 
     fn update_with_playlist(&mut self, playlist: youtube_dl::Playlist) {
@@ -180,7 +184,7 @@ impl Channel {
             .extra_arg("--no-simulate")
             .extra_arg("--no-progress")
             .extra_arg("--output")
-            .extra_arg(std::path::Path::new(&self.name).join("%(id)s.%(ext)s").to_string_lossy())
+            .extra_arg(std::path::Path::new(&self.path).join("%(id)s.%(ext)s").to_string_lossy())
             .extra_arg("--embed-chapters")
             .extra_arg("--write-sub")
             .extra_arg("--write-auto-sub")
@@ -325,7 +329,7 @@ mod test {
         let mut channel = super::Channel::new(
             "mightycarmods".to_string(),
             "https://www.youtube.com/c/mightycarmods".to_string(),
-            "http://localhost".to_string()
+            "http://localhost".to_string(),
         );
 
         channel.update_with_playlist(playlist);
