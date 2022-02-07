@@ -20,8 +20,8 @@ impl Channel {
                     Ok(channel) => Some(channel),
                     Err(_) => None,
                 }
-            },
-            Err(_) => None
+            }
+            Err(_) => None,
         };
 
         Self {
@@ -52,11 +52,11 @@ impl Channel {
         log::debug!("{:#?}", ytdl_result);
 
         if let youtube_dl::YoutubeDlOutput::Playlist(playlist) = ytdl_result {
-            let title = playlist.title.as_ref().unwrap_or_else(|| { &self.target_url }).clone();
+            let title = playlist.title.as_ref().unwrap_or(&self.target_url).clone();
 
             let rss_items: Vec<rss::Item> = match playlist.entries {
                 Some(ref entries) => entries
-                    .into_iter()
+                    .iter()
                     .map(|video| {
                         use hhmmss::Hhmmss;
 
@@ -73,7 +73,7 @@ impl Channel {
 
                         let upload_date = video.upload_date.as_ref().map(|date| {
                             chrono::Date::<chrono::Utc>::from_utc(
-                                chrono::NaiveDate::parse_from_str(&date, "%Y%m%d").unwrap(),
+                                chrono::NaiveDate::parse_from_str(date, "%Y%m%d").unwrap(),
                                 chrono::Utc,
                             )
                             .and_hms(0, 0, 0)
@@ -131,7 +131,6 @@ impl Channel {
                         .category(rss_itunes_category)
                         .block("Yes".to_string())
                         .build();
-
 
                 rss::ChannelBuilder::default()
                     .title(title)
