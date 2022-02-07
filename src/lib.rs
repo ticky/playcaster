@@ -7,6 +7,7 @@ const DEFAULT_LIMIT: usize = 50;
 pub struct Channel {
     name: String,
     playlist_url: String,
+    hostname: String,
     limit: usize,
     pub rss_channel: Option<rss::Channel>,
 }
@@ -19,6 +20,7 @@ impl Channel {
     pub fn new_with_limit_and_reader<T: std::io::BufRead>(
         name: String,
         playlist_url: String,
+        hostname: String,
         limit: usize,
         reader: T,
     ) -> Self {
@@ -30,6 +32,7 @@ impl Channel {
         Self {
             name,
             playlist_url,
+            hostname,
             limit,
             rss_channel,
         }
@@ -38,28 +41,30 @@ impl Channel {
     pub fn new_with_reader<T: std::io::BufRead>(
         name: String,
         playlist_url: String,
+        hostname: String,
         reader: T,
     ) -> Self {
-        Self::new_with_limit_and_reader(name, playlist_url, DEFAULT_LIMIT, reader)
+        Self::new_with_limit_and_reader(name, playlist_url, hostname, DEFAULT_LIMIT, reader)
     }
 
-    pub fn new_with_limit(name: String, playlist_url: String, limit: usize) -> Self {
+    pub fn new_with_limit(name: String, playlist_url: String, hostname: String, limit: usize) -> Self {
         match std::fs::File::open(format!("{}.rss", name)) {
             Ok(file) => {
                 let reader = std::io::BufReader::new(file);
-                Self::new_with_limit_and_reader(name, playlist_url, limit, reader)
+                Self::new_with_limit_and_reader(name, playlist_url, hostname, limit, reader)
             }
             Err(_) => Self {
                 name,
                 playlist_url,
+                hostname,
                 limit,
                 rss_channel: None,
             },
         }
     }
 
-    pub fn new(name: String, playlist_url: String) -> Self {
-        Self::new_with_limit(name, playlist_url, DEFAULT_LIMIT)
+    pub fn new(name: String, playlist_url: String, hostname: String) -> Self {
+        Self::new_with_limit(name, playlist_url, hostname, DEFAULT_LIMIT)
     }
 
     fn update_with_playlist(&mut self, playlist: youtube_dl::Playlist) {
@@ -106,7 +111,7 @@ impl Channel {
                             .build();
 
                     let item_enclosure = rss::EnclosureBuilder::default()
-                        .url(format!("http://192.168.1.193:8000/{}.mp4", video.id)) // TODO: This has to be absolute!
+                        .url(format!("{}/{}.mp4", self.hostname, video.id))
                         .length((video.filesize_approx.unwrap_or(0.0) as u64).to_string())
                         .mime_type("video/mp4")
                         .build();
@@ -158,7 +163,7 @@ impl Channel {
         });
 
         rss_items.append(&mut rss_channel.items);
-        rss_items.truncate(self.limit);
+        // rss_items.truncate(self.limit);
 
         rss_channel.set_items(rss_items);
 
@@ -168,15 +173,20 @@ impl Channel {
     pub fn update(&mut self) {
         let ytdl_result = youtube_dl::YoutubeDl::new(self.playlist_url.clone())
             .youtube_dl_path("yt-dlp")
-            // .extra_arg("--flat-playlist") // NOTE: This makes very long playlists work, but misses out on lots of metadata
             .extra_arg("--playlist-end")
             .extra_arg(self.limit.to_string())
             .extra_arg("--format")
             .extra_arg("bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best")
             .extra_arg("--no-simulate")
             .extra_arg("--no-progress")
-            // .extra_arg("--output")
-            // .extra_arg()
+            .extra_arg("--output")
+            .extra_arg(std::path::Path::new(&self.name).join("%(id)s.%(ext)s").to_string_lossy())
+            .extra_arg("--embed-chapters")
+            .extra_arg("--write-sub")
+            .extra_arg("--write-auto-sub")
+            .extra_arg("--embed-subs")
+            .extra_arg("--sub-lang")
+            .extra_arg("en")
             .run()
             .unwrap();
 
@@ -315,6 +325,7 @@ mod test {
         let mut channel = super::Channel::new(
             "mightycarmods".to_string(),
             "https://www.youtube.com/c/mightycarmods".to_string(),
+            "http://localhost".to_string()
         );
 
         channel.update_with_playlist(playlist);
@@ -450,6 +461,7 @@ mod test {
         let mut channel = super::Channel::new_with_reader(
             "mightycarmods".to_string(),
             "https://www.youtube.com/c/mightycarmods".to_string(),
+            "http://localhost".to_string,
             reader,
         );
 
