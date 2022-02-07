@@ -55,9 +55,12 @@ fn rss_channel_from(target_url: String, limit: u64) -> rss::Channel {
                         };
 
                         let upload_date = video.upload_date.map(|date| {
-                            chrono::Date::<chrono::Utc>::from_utc(chrono::NaiveDate::parse_from_str(&date, "%Y%m%d").unwrap(), chrono::Utc)
-                                .and_hms(0,0,0)
-                                .to_rfc2822()
+                            chrono::Date::<chrono::Utc>::from_utc(
+                                chrono::NaiveDate::parse_from_str(&date, "%Y%m%d").unwrap(),
+                                chrono::Utc,
+                            )
+                            .and_hms(0, 0, 0)
+                            .to_rfc2822()
                         });
 
                         let item_itunes_extension =
