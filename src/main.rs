@@ -1,7 +1,7 @@
 fn rss_channel_from(target_url: String, limit: u64) -> rss::Channel {
     let channel = youtube_dl::YoutubeDl::new(target_url.clone())
         .youtube_dl_path("yt-dlp")
-        // .extra_arg("--flat-playlist")
+        // .extra_arg("--flat-playlist") // NOTE: This makes very long playlists work, but misses out on lots of metadata
         .extra_arg("--playlist-end")
         .extra_arg(limit.to_string())
         .run()
@@ -37,53 +37,57 @@ fn rss_channel_from(target_url: String, limit: u64) -> rss::Channel {
             .build();
 
         let rss_items: Vec<rss::Item> = match playlist.entries {
-            Some(entries) => {
-                entries
-                    .into_iter()
-                    .map(|video| {
-                        use hhmmss::Hhmmss;
+            Some(entries) => entries
+                .into_iter()
+                .map(|video| {
+                    use hhmmss::Hhmmss;
 
-                        let duration = match video.duration {
-                            Some(value) => {
-                                let secs = match value {
-                                    serde_json::Value::Number(secs) => secs.as_f64().unwrap_or(0.0),
-                                    _ => 0.0,
-                                };
-                                std::time::Duration::new(secs as u64, 0)
-                            }
-                            None => std::time::Duration::default(),
-                        };
+                    let duration = match video.duration {
+                        Some(value) => {
+                            let secs = match value {
+                                serde_json::Value::Number(secs) => secs.as_f64().unwrap_or(0.0),
+                                _ => 0.0,
+                            };
+                            std::time::Duration::new(secs as u64, 0)
+                        }
+                        None => std::time::Duration::default(),
+                    };
 
-                        let upload_date = video.upload_date.map(|date| {
-                            chrono::Date::<chrono::Utc>::from_utc(
-                                chrono::NaiveDate::parse_from_str(&date, "%Y%m%d").unwrap(),
-                                chrono::Utc,
-                            )
-                            .and_hms(0, 0, 0)
-                            .to_rfc2822()
-                        });
+                    let upload_date = video.upload_date.map(|date| {
+                        chrono::Date::<chrono::Utc>::from_utc(
+                            chrono::NaiveDate::parse_from_str(&date, "%Y%m%d").unwrap(),
+                            chrono::Utc,
+                        )
+                        .and_hms(0, 0, 0)
+                        .to_rfc2822()
+                    });
 
-                        let item_itunes_extension =
-                            rss::extension::itunes::ITunesItemExtensionBuilder::default()
-                                .author(title.clone())
-                                .subtitle(video.title.clone())
-                                .summary(video.description)
-                                .image(video.thumbnail)
-                                .duration(duration.hhmmss())
-                                .explicit("No".to_string())
-                                .build();
+                    let item_itunes_extension =
+                        rss::extension::itunes::ITunesItemExtensionBuilder::default()
+                            .author(title.clone())
+                            .subtitle(video.title.clone())
+                            .summary(video.description)
+                            .image(video.thumbnail)
+                            .duration(duration.hhmmss())
+                            .explicit("No".to_string())
+                            .build();
 
-                        rss::ItemBuilder::default()
-                            .guid(rss::GuidBuilder::default().value(video.id).build())
-                            .title(video.title)
-                            .link(video.webpage_url)
-                            .pub_date(upload_date)
-                            // TODO: .enclosure
-                            .itunes_ext(item_itunes_extension)
-                            .build()
-                    })
-                    .collect()
-            }
+                    let item_enclosure = rss::EnclosureBuilder::default()
+                        .url(format!("http://localhost/{}.mp4", video.id)) // TODO: This has to be absolute!
+                        .length((video.filesize_approx.unwrap_or(0.0) as u64).to_string())
+                        .mime_type("video/mp4")
+                        .build();
+
+                    rss::ItemBuilder::default()
+                        .guid(rss::GuidBuilder::default().value(video.id).build())
+                        .title(video.title)
+                        .link(video.webpage_url)
+                        .pub_date(upload_date)
+                        .enclosure(item_enclosure)
+                        .itunes_ext(item_itunes_extension)
+                        .build()
+                })
+                .collect(),
             None => vec![],
         };
 
