@@ -9,6 +9,7 @@ fn main() {
 
     let mut channel =
         vodsync::Channel::new_with_limit("test".to_string(), target_url.to_string(), 1);
+
     channel.update();
 
     print!("{}", channel.rss_channel.unwrap().to_string());
