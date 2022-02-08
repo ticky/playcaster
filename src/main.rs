@@ -46,9 +46,11 @@ fn main() {
                 .write(true)
                 .create(true)
                 .open(format!("{}.xml", args.channel_path))
-                .unwrap();
+                .expect("Unable to open file for writing");
 
-            channel.pretty_write_to(file, b' ', 2).unwrap();
+            channel
+                .pretty_write_to(file, b' ', 2)
+                .expect("Couldn't write XML to file");
         } else {
             print!("{}", channel.to_string());
         }
