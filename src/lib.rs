@@ -20,6 +20,9 @@ use std::time::Duration;
 use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 
 const DEFAULT_LIMIT: usize = 50;
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const PKG_REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Represents a given RSS channel, which points at a video feed.
 pub struct Channel {
@@ -155,7 +158,7 @@ impl Channel {
                 .webpage_url
                 .unwrap_or_else(|| self.playlist_url.to_string());
 
-            let description = format!("Vodsync podcast feed for {}", title);
+            let description = format!("{} podcast feed for {}", PKG_NAME, title);
 
             let rss_itunes_category = ITunesCategoryBuilder::default().text("TV & Film").build();
 
@@ -173,7 +176,6 @@ impl Channel {
                 .title(title)
                 .link(link)
                 .description(description)
-                .generator("Vodsync (https://github.com/ticky/vodsync)".to_string())
                 .itunes_ext(rss_itunes_extension)
                 .build()
         });
@@ -181,6 +183,7 @@ impl Channel {
         rss_items.append(&mut rss_channel.items);
         // rss_items.truncate(self.limit);
 
+        rss_channel.set_generator(format!("{}/{} ({})", PKG_NAME, PKG_VERSION, PKG_REPOSITORY));
         rss_channel.set_items(rss_items);
 
         self.rss_channel = Some(rss_channel);

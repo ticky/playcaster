@@ -3,7 +3,7 @@ extern crate log;
 use std::fs::OpenOptions;
 use structopt::StructOpt;
 
-use vodsync::Channel;
+use playcaster::Channel;
 
 #[derive(StructOpt, Debug)]
 #[structopt()]
