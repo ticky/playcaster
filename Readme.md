@@ -10,7 +10,7 @@ Turn any playlist[^1] into a Podcast feed
 
 ```sh
 playcaster \
-	htdocs/playlist \
+	$HOME/htdocs/feeds/playlist \
 	"https://www.youtube.com/playlist?list=playlist" \
 	"http://your-podcast-server.example/playlist" \
 	--write-feed \
@@ -24,5 +24,25 @@ playcaster \
 `--write-feed` tells playcaster it should write an RSS feed to a file adjacent to `channel-path`, otherwise it writes the feed XML to the terminal.
 
 Items after `--` are passed on to `yt-dlp`, to configure its extraction or filter results.
+
+## Docker Usage
+
+A Docker image is supplied for ease of use in environments like a NAS:
+
+```sh
+docker pull ghcr.io/ticky/playcaster:main
+docker run --rm -v $HOME/htdocs/feeds:/feeds -it ghcr.io/ticky/playcaster:main \
+	/feeds/playlist \
+	"https://www.youtube.com/playlist?list=playlist" \
+	"http://your-podcast-server.example/playlist" \
+	--write-feed \
+	-- \
+		--embed-chapters \
+		--write-auto-sub \
+		--embed-subs \
+		--sub-lang en
+```
+
+The image is based upon [jauderho/yt-dlp](https://hub.docker.com/r/jauderho/yt-dlp), which includes `yt-dlp` and `ffmpeg`.
 
 [^1]: That `yt-dlp` supports, anyway
