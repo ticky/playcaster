@@ -368,6 +368,8 @@ mod test {
     #[test]
     fn test_update_existing_with_playlist() {
         use rss::validation::Validate;
+        use std::io::BufReader;
+
         let playlist = youtube_dl::model::Playlist {
             entries: Some(
                 vec![
@@ -491,7 +493,7 @@ mod test {
         let mut channel = super::Channel::new_with_reader(
             "mightycarmods".to_string(),
             "https://www.youtube.com/c/mightycarmods".to_string(),
-            "http://localhost".to_string,
+            "http://localhost".to_string(),
             reader,
         );
 
