@@ -70,7 +70,7 @@ impl Channel {
         hostname: String,
         limit: usize,
     ) -> Self {
-        match File::open(format!("{}.rss", path)) {
+        match File::open(format!("{}.xml", path)) {
             Ok(file) => {
                 let reader = BufReader::new(file);
                 Self::new_with_limit_and_reader(path, playlist_url, hostname, limit, reader)

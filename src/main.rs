@@ -45,6 +45,7 @@ fn main() {
             let file = OpenOptions::new()
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(format!("{}.xml", args.channel_path))
                 .expect("Unable to open file for writing");
 
