@@ -18,6 +18,8 @@ struct Args {
     /// Whether to write the updated RSS feed to disk
     #[structopt(long)]
     write_feed: bool,
+    /// Additional arguments to be passed to `yt-dlp`
+    downloader_arguments: Vec<String>,
 }
 
 fn main() {
@@ -33,14 +35,14 @@ fn main() {
         args.limit,
     );
 
-    channel.update();
+    channel.update_with_args(args.downloader_arguments);
 
     if let Some(ref channel) = channel.rss_channel {
         if args.write_feed {
             let file = std::fs::OpenOptions::new()
                 .write(true)
                 .create(true)
-                .open(format!("{}.rss", args.channel_path))
+                .open(format!("{}.xml", args.channel_path))
                 .unwrap();
 
             channel.pretty_write_to(file, b' ', 2).unwrap();

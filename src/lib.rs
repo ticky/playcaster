@@ -23,10 +23,7 @@ impl Channel {
         limit: usize,
         reader: T,
     ) -> Self {
-        let rss_channel = match rss::Channel::read_from(reader) {
-            Ok(channel) => Some(channel),
-            Err(_) => None,
-        };
+        let rss_channel = rss::Channel::read_from(reader).ok();
 
         Self {
             path,
@@ -115,7 +112,7 @@ impl Channel {
                             .build();
 
                     let item_enclosure = rss::EnclosureBuilder::default()
-                        .url(format!("{}/{}.mp4", self.hostname, video.id))
+                        .url(format!("{}/{}.mp4", self.hostname, video.id)) // TODO: This needs to add a path segment based on the feed name
                         .length((video.filesize_approx.unwrap_or(0.0) as u64).to_string())
                         .mime_type("video/mp4")
                         .build();
@@ -135,10 +132,9 @@ impl Channel {
 
         // Retrieve the existing RSS channel, or create a new one
         let mut rss_channel = self.rss_channel.clone().unwrap_or_else(|| {
-            let link = match playlist.webpage_url {
-                Some(url) => url,
-                None => self.playlist_url.to_string(),
-            };
+            let link = playlist
+                .webpage_url
+                .unwrap_or(self.playlist_url.to_string());
 
             let description = format!("Vodsync podcast feed for {}", title);
 
@@ -175,28 +171,38 @@ impl Channel {
     }
 
     pub fn update(&mut self) {
-        let ytdl_result = youtube_dl::YoutubeDl::new(self.playlist_url.clone())
-            .youtube_dl_path("yt-dlp")
-            .extra_arg("--playlist-end")
-            .extra_arg(self.limit.to_string())
-            .extra_arg("--format")
-            .extra_arg("bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best")
-            .extra_arg("--no-simulate")
-            .extra_arg("--no-progress")
-            .extra_arg("--output")
-            .extra_arg(std::path::Path::new(&self.path).join("%(id)s.%(ext)s").to_string_lossy())
-            .extra_arg("--embed-chapters")
-            .extra_arg("--write-sub")
-            .extra_arg("--write-auto-sub")
-            .extra_arg("--embed-subs")
-            .extra_arg("--sub-lang")
-            .extra_arg("en")
-            .run()
-            .unwrap();
+        self.update_with_args(vec![])
+    }
 
-        debug!("{:#?}", ytdl_result);
+    pub fn update_with_args(&mut self, args: Vec<String>) {
+        let mut ytdl = youtube_dl::YoutubeDl::new(self.playlist_url.clone());
 
-        if let youtube_dl::YoutubeDlOutput::Playlist(playlist) = ytdl_result {
+        ytdl.youtube_dl_path("yt-dlp");
+
+        ytdl.extra_arg("--playlist-end")
+            .extra_arg(self.limit.to_string());
+
+        ytdl.extra_arg("--format")
+            .extra_arg("bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best");
+
+        ytdl.extra_arg("--no-simulate");
+        ytdl.extra_arg("--no-progress");
+        ytdl.extra_arg("--no-overwrites");
+        ytdl.extra_arg("--output").extra_arg(
+            std::path::Path::new(&self.path)
+                .join("%(id)s.%(ext)s")
+                .to_string_lossy(),
+        );
+
+        args.into_iter().for_each(|arg| {
+            ytdl.extra_arg(arg);
+        });
+
+        let result = ytdl.run().unwrap();
+
+        debug!("{:#?}", result);
+
+        if let youtube_dl::YoutubeDlOutput::Playlist(playlist) = result {
             self.update_with_playlist(*playlist)
         } else {
             panic!("This URL points to a single video, not a channel!")
