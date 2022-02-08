@@ -12,7 +12,7 @@ Turn any playlist[^1] into a Podcast feed
 playcaster \
 	$HOME/htdocs/feeds/playlist.xml \
 	"https://www.youtube.com/playlist?list=playlist" \
-	"http://your-podcast-server.example/playlist" \
+	"http://your-podcast-server.example" \
 	--write-feed \
 	-- \
 		--embed-chapters \
@@ -34,7 +34,7 @@ docker pull ghcr.io/ticky/playcaster:main
 docker run --rm -v $HOME/htdocs/feeds:/feeds -it ghcr.io/ticky/playcaster:main \
 	/feeds/playlist.xml \
 	"https://www.youtube.com/playlist?list=playlist" \
-	"http://your-podcast-server.example/playlist" \
+	"http://your-podcast-server.example" \
 	--write-feed \
 	-- \
 		--embed-chapters \

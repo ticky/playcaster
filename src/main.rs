@@ -3,6 +3,7 @@ extern crate log;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use url::Url;
 
 use playcaster::Channel;
 
@@ -13,12 +14,12 @@ struct Args {
     #[structopt(parse(from_os_str))]
     feed_file: PathBuf,
     /// Playlist URL to download videos from
-    playlist_url: String,
+    playlist_url: Url,
     /// Maximum number of videos to download for the given channel
     #[structopt(default_value = "50", long)]
     limit: usize,
     /// Base URL to server which will serve the feed items
-    base_url: String,
+    base_url: Url,
     /// Whether to write the updated RSS feed to disk
     #[structopt(long)]
     write_feed: bool,

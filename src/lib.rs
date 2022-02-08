@@ -12,6 +12,8 @@ use rss::{
     ItemBuilder as RSSItemBuilder,
 };
 
+use url::Url;
+
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -25,8 +27,8 @@ const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Represents a given RSS channel, which points at a video feed.
 pub struct Channel {
-    path: PathBuf,
-    playlist_url: String,
+    feed_file: PathBuf,
+    playlist_url: Url,
     pub rss_channel: Option<RSSChannel>,
 }
 
@@ -34,35 +36,35 @@ pub struct Channel {
 // - Ignore existing episodes (by date?)
 // - Delete old episodes when done
 impl Channel {
-    pub fn new_with_reader<T: BufRead>(path: PathBuf, playlist_url: String, reader: T) -> Self {
+    pub fn new_with_reader<T: BufRead>(feed_file: PathBuf, playlist_url: Url, reader: T) -> Self {
         let rss_channel = RSSChannel::read_from(reader).ok();
 
         Self {
-            path,
+            feed_file,
             playlist_url,
             rss_channel,
         }
     }
 
-    pub fn new(path: PathBuf, playlist_url: String) -> Self {
-        match File::open(path.clone()) {
+    pub fn new(feed_file: PathBuf, playlist_url: Url) -> Self {
+        match File::open(feed_file.clone()) {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                Self::new_with_reader(path, playlist_url, reader)
+                Self::new_with_reader(feed_file, playlist_url, reader)
             }
             Err(_) => Self {
-                path,
+                feed_file,
                 playlist_url,
                 rss_channel: None,
             },
         }
     }
 
-    fn update_with_playlist(&mut self, base_url: String, playlist: youtube_dl::Playlist) {
+    fn update_with_playlist(&mut self, base_url: Url, playlist: youtube_dl::Playlist) {
         let title = playlist
             .title
             .as_ref()
-            .unwrap_or(&self.playlist_url)
+            .unwrap_or(&self.playlist_url.to_string())
             .clone();
 
         let mut rss_items: Vec<RSSItem> = match playlist.entries {
@@ -103,7 +105,13 @@ impl Channel {
                         .build();
 
                     let item_enclosure = RSSEnclosureBuilder::default()
-                        .url(format!("{}/{}.mp4", base_url, video.id)) // TODO: This needs to add a path segment based on the feed name
+                        .url(
+                            base_url
+                                .join(&self.feed_file.file_stem().unwrap().to_string_lossy())
+                                .unwrap()
+                                .join(&format!("{}.mp4", video.id))
+                                .unwrap(),
+                        )
                         .length((video.filesize_approx.unwrap_or(0.0) as u64).to_string())
                         .mime_type("video/mp4")
                         .build();
@@ -158,13 +166,13 @@ impl Channel {
         self.rss_channel = Some(rss_channel);
     }
 
-    pub fn update(&mut self, base_url: String) {
+    pub fn update(&mut self, base_url: Url) {
         self.update_with_args(base_url, 50, vec![])
     }
 
     pub fn update_with_args(
         &mut self,
-        base_url: String,
+        base_url: Url,
         download_limit: usize,
         additional_args: Vec<String>,
     ) {
@@ -187,9 +195,20 @@ impl Channel {
         ytdl.extra_arg("--no-progress");
         ytdl.extra_arg("--no-overwrites");
         ytdl.extra_arg("--output").extra_arg(
-            Path::new(&self.path)
-                .join("%(id)s.%(ext)s")
-                .to_string_lossy(),
+            Path::new(
+                &self
+                    .feed_file
+                    .parent()
+                    .expect("Can't write to the root directory"),
+            )
+            .join(
+                &self
+                    .feed_file
+                    .file_stem()
+                    .expect("Can't write to file with no name"),
+            )
+            .join("%(id)s.%(ext)s")
+            .to_string_lossy(),
         );
 
         let result = ytdl.run().expect("YoutubeDl run failed");
@@ -209,6 +228,8 @@ mod test {
     #[test]
     fn test_update_new_with_playlist() {
         use rss::validation::Validate;
+        use url::Url;
+
         let playlist = youtube_dl::model::Playlist {
             entries: Some(
                 vec![
@@ -327,11 +348,11 @@ mod test {
         };
 
         let mut channel = super::Channel::new(
-            std::path::Path::new("mightycarmods").to_path_buf(),
-            "https://www.youtube.com/c/mightycarmods".to_string(),
+            std::path::Path::new("mightycarmods.xml").to_path_buf(),
+            Url::parse("https://www.youtube.com/c/mightycarmods").unwrap(),
         );
 
-        channel.update_with_playlist("http://localhost".to_string(), playlist);
+        channel.update_with_playlist(Url::parse("http://localhost").unwrap(), playlist);
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
@@ -342,6 +363,7 @@ mod test {
     fn test_update_existing_with_playlist() {
         use rss::validation::Validate;
         use std::io::BufReader;
+        use url::Url;
 
         let playlist = youtube_dl::model::Playlist {
             entries: Some(
@@ -464,15 +486,15 @@ mod test {
         let reader = BufReader::new(&bytes[0..]);
 
         let mut channel = super::Channel::new_with_reader(
-            std::path::Path::new("mightycarmods").to_path_buf(),
-            "https://www.youtube.com/c/mightycarmods".to_string(),
+            std::path::Path::new("mightycarmods.xml").to_path_buf(),
+            Url::parse("https://www.youtube.com/c/mightycarmods").unwrap(),
             reader,
         );
 
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         assert_eq!(rss_channel.items.len(), 1);
 
-        channel.update_with_playlist("http://localhost".to_string(), playlist);
+        channel.update_with_playlist(Url::parse("http://localhost").unwrap(), playlist);
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
