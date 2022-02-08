@@ -1,6 +1,8 @@
 [package]
 name = "playcaster"
-version = "0.1.0"
+description = "🎥 Turn any playlist into a Podcast feed"
+version = "0.0.1"
+authors = ["Jessica Stokes <hello@jessicastokes.net>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
