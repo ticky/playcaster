@@ -6,11 +6,11 @@ Turn any playlist[^1] into a Podcast feed
 
 ## Usage
 
-`playcaster <channel-path> <url> <hostname> [downloader-arguments]...`
+`playcaster <channel-path> <playlist-url> <base-url> [downloader-arguments]...`
 
 ```sh
 playcaster \
-	$HOME/htdocs/feeds/playlist \
+	$HOME/htdocs/feeds/playlist.xml \
 	"https://www.youtube.com/playlist?list=playlist" \
 	"http://your-podcast-server.example/playlist" \
 	--write-feed \
@@ -32,7 +32,7 @@ A Docker image is supplied for ease of use in environments like a NAS:
 ```sh
 docker pull ghcr.io/ticky/playcaster:main
 docker run --rm -v $HOME/htdocs/feeds:/feeds -it ghcr.io/ticky/playcaster:main \
-	/feeds/playlist \
+	/feeds/playlist.xml \
 	"https://www.youtube.com/playlist?list=playlist" \
 	"http://your-podcast-server.example/playlist" \
 	--write-feed \

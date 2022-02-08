@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate log;
 use std::fs::OpenOptions;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 use playcaster::Channel;
@@ -8,16 +9,16 @@ use playcaster::Channel;
 #[derive(StructOpt, Debug)]
 #[structopt()]
 struct Args {
-    /// Path to the channel's folder and RSS feed
-    // TODO: #[structopt(parse(from_os_str))]
-    channel_path: String, // TODO: PathBuf
-    /// URL to download videos from
-    url: String,
+    /// Path to the channel's RSS feed file
+    #[structopt(parse(from_os_str))]
+    feed_file: PathBuf,
+    /// Playlist URL to download videos from
+    playlist_url: String,
     /// Maximum number of videos to download for the given channel
     #[structopt(default_value = "50", long)]
     limit: usize,
-    /// Hostname of server which will serve the feed items
-    hostname: String,
+    /// Base URL to server which will serve the feed items
+    base_url: String,
     /// Whether to write the updated RSS feed to disk
     #[structopt(long)]
     write_feed: bool,
@@ -34,11 +35,11 @@ fn main() {
 
     debug!("{:?}", args);
 
-    let mut channel = Channel::new(args.channel_path.clone(), args.url, args.hostname);
+    let mut channel = Channel::new(args.feed_file.clone(), args.playlist_url);
 
     println!("Updating channel... (this can take a pretty long time)");
 
-    channel.update_with_args(args.limit, args.downloader_arguments);
+    channel.update_with_args(args.base_url, args.limit, args.downloader_arguments);
 
     println!(" Done!");
 
@@ -48,7 +49,7 @@ fn main() {
                 .write(true)
                 .create(true)
                 .truncate(true)
-                .open(format!("{}.xml", args.channel_path))
+                .open(args.feed_file)
                 .expect("Unable to open file for writing");
 
             channel

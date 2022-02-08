@@ -14,7 +14,7 @@ use rss::{
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use youtube_dl::{YoutubeDl, YoutubeDlOutput};
@@ -25,9 +25,8 @@ const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Represents a given RSS channel, which points at a video feed.
 pub struct Channel {
-    path: String, // TODO: Make this a PathBuf
+    path: PathBuf,
     playlist_url: String,
-    hostname: String,
     pub rss_channel: Option<RSSChannel>,
 }
 
@@ -35,38 +34,31 @@ pub struct Channel {
 // - Ignore existing episodes (by date?)
 // - Delete old episodes when done
 impl Channel {
-    pub fn new_with_reader<T: BufRead>(
-        path: String,
-        playlist_url: String,
-        hostname: String,
-        reader: T,
-    ) -> Self {
+    pub fn new_with_reader<T: BufRead>(path: PathBuf, playlist_url: String, reader: T) -> Self {
         let rss_channel = RSSChannel::read_from(reader).ok();
 
         Self {
             path,
             playlist_url,
-            hostname,
             rss_channel,
         }
     }
 
-    pub fn new(path: String, playlist_url: String, hostname: String) -> Self {
-        match File::open(format!("{}.xml", path)) {
+    pub fn new(path: PathBuf, playlist_url: String) -> Self {
+        match File::open(path.clone()) {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                Self::new_with_reader(path, playlist_url, hostname, reader)
+                Self::new_with_reader(path, playlist_url, reader)
             }
             Err(_) => Self {
                 path,
                 playlist_url,
-                hostname,
                 rss_channel: None,
             },
         }
     }
 
-    fn update_with_playlist(&mut self, playlist: youtube_dl::Playlist) {
+    fn update_with_playlist(&mut self, base_url: String, playlist: youtube_dl::Playlist) {
         let title = playlist
             .title
             .as_ref()
@@ -111,7 +103,7 @@ impl Channel {
                         .build();
 
                     let item_enclosure = RSSEnclosureBuilder::default()
-                        .url(format!("{}/{}.mp4", self.hostname, video.id)) // TODO: This needs to add a path segment based on the feed name
+                        .url(format!("{}/{}.mp4", base_url, video.id)) // TODO: This needs to add a path segment based on the feed name
                         .length((video.filesize_approx.unwrap_or(0.0) as u64).to_string())
                         .mime_type("video/mp4")
                         .build();
@@ -166,11 +158,16 @@ impl Channel {
         self.rss_channel = Some(rss_channel);
     }
 
-    pub fn update(&mut self) {
-        self.update_with_args(50, vec![])
+    pub fn update(&mut self, base_url: String) {
+        self.update_with_args(base_url, 50, vec![])
     }
 
-    pub fn update_with_args(&mut self, download_limit: usize, additional_args: Vec<String>) {
+    pub fn update_with_args(
+        &mut self,
+        base_url: String,
+        download_limit: usize,
+        additional_args: Vec<String>,
+    ) {
         let mut ytdl = YoutubeDl::new(self.playlist_url.clone());
 
         ytdl.youtube_dl_path("yt-dlp");
@@ -200,7 +197,7 @@ impl Channel {
         debug!("{:#?}", result);
 
         if let YoutubeDlOutput::Playlist(playlist) = result {
-            self.update_with_playlist(*playlist)
+            self.update_with_playlist(base_url, *playlist)
         } else {
             panic!("This URL points to a single video, not a channel!")
         }
@@ -330,12 +327,11 @@ mod test {
         };
 
         let mut channel = super::Channel::new(
-            "mightycarmods".to_string(),
+            std::path::Path::new("mightycarmods").to_path_buf(),
             "https://www.youtube.com/c/mightycarmods".to_string(),
-            "http://localhost".to_string(),
         );
 
-        channel.update_with_playlist(playlist);
+        channel.update_with_playlist("http://localhost".to_string(), playlist);
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
@@ -468,16 +464,15 @@ mod test {
         let reader = BufReader::new(&bytes[0..]);
 
         let mut channel = super::Channel::new_with_reader(
-            "mightycarmods".to_string(),
+            std::path::Path::new("mightycarmods").to_path_buf(),
             "https://www.youtube.com/c/mightycarmods".to_string(),
-            "http://localhost".to_string(),
             reader,
         );
 
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         assert_eq!(rss_channel.items.len(), 1);
 
-        channel.update_with_playlist(playlist);
+        channel.update_with_playlist("http://localhost".to_string(), playlist);
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
