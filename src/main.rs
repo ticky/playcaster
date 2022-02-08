@@ -29,6 +29,9 @@ fn main() {
     env_logger::init();
 
     let args = Args::from_args();
+
+    println!("Starting up...");
+
     debug!("{:?}", args);
 
     let mut channel = Channel::new_with_limit(
@@ -38,7 +41,11 @@ fn main() {
         args.limit,
     );
 
+    println!("Updating channel... (this can take a pretty long time)");
+
     channel.update_with_args(args.downloader_arguments);
+
+    println!(" Done!");
 
     if let Some(ref channel) = channel.rss_channel {
         if args.write_feed {
