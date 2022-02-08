@@ -1,6 +1,24 @@
 #[macro_use]
 extern crate log;
 
+use chrono::{Date, NaiveDate, Utc};
+
+use rss::extension::itunes::{
+    ITunesCategoryBuilder, ITunesChannelExtensionBuilder, ITunesItemExtensionBuilder,
+};
+use rss::{
+    Channel as RSSChannel, ChannelBuilder as RSSChannelBuilder,
+    EnclosureBuilder as RSSEnclosureBuilder, GuidBuilder as RSSGuidBuilder, Item as RSSItem,
+    ItemBuilder as RSSItemBuilder,
+};
+
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
+use std::time::Duration;
+
+use youtube_dl::{YoutubeDl, YoutubeDlOutput};
+
 const DEFAULT_LIMIT: usize = 50;
 
 /// Represents a given RSS channel, which points at a video feed.
@@ -9,21 +27,21 @@ pub struct Channel {
     playlist_url: String,
     hostname: String,
     limit: usize,
-    pub rss_channel: Option<rss::Channel>,
+    pub rss_channel: Option<RSSChannel>,
 }
 
 // TODO:
 // - Ignore existing episodes (by date?)
-// - Delete old episodes
+// - Delete old episodes when done
 impl Channel {
-    pub fn new_with_limit_and_reader<T: std::io::BufRead>(
+    pub fn new_with_limit_and_reader<T: BufRead>(
         path: String,
         playlist_url: String,
         hostname: String,
         limit: usize,
         reader: T,
     ) -> Self {
-        let rss_channel = rss::Channel::read_from(reader).ok();
+        let rss_channel = RSSChannel::read_from(reader).ok();
 
         Self {
             path,
@@ -34,7 +52,7 @@ impl Channel {
         }
     }
 
-    pub fn new_with_reader<T: std::io::BufRead>(
+    pub fn new_with_reader<T: BufRead>(
         path: String,
         playlist_url: String,
         hostname: String,
@@ -49,9 +67,9 @@ impl Channel {
         hostname: String,
         limit: usize,
     ) -> Self {
-        match std::fs::File::open(format!("{}.rss", path)) {
+        match File::open(format!("{}.rss", path)) {
             Ok(file) => {
-                let reader = std::io::BufReader::new(file);
+                let reader = BufReader::new(file);
                 Self::new_with_limit_and_reader(path, playlist_url, hostname, limit, reader)
             }
             Err(_) => Self {
@@ -75,7 +93,7 @@ impl Channel {
             .unwrap_or(&self.playlist_url)
             .clone();
 
-        let mut rss_items: Vec<rss::Item> = match playlist.entries {
+        let mut rss_items: Vec<RSSItem> = match playlist.entries {
             Some(ref entries) => entries
                 .iter()
                 .map(|video| {
@@ -87,38 +105,39 @@ impl Channel {
                                 serde_json::Value::Number(secs) => secs.as_f64().unwrap_or(0.0),
                                 _ => 0.0,
                             };
-                            std::time::Duration::new(secs as u64, 0)
+                            Duration::new(secs as u64, 0)
                         }
-                        None => std::time::Duration::default(),
+                        None => Duration::default(),
                     };
 
                     let upload_date = video.upload_date.as_ref().map(|date| {
-                        chrono::Date::<chrono::Utc>::from_utc(
-                            chrono::NaiveDate::parse_from_str(date, "%Y%m%d").unwrap(),
-                            chrono::Utc,
+                        Date::<Utc>::from_utc(
+                            NaiveDate::parse_from_str(date, "%Y%m%d").unwrap_or_else(|_| {
+                                panic!("Unexpected date format in date: {:?}", date)
+                            }),
+                            Utc,
                         )
                         .and_hms(0, 0, 0)
                         .to_rfc2822()
                     });
 
-                    let item_itunes_extension =
-                        rss::extension::itunes::ITunesItemExtensionBuilder::default()
-                            .author(title.clone())
-                            .subtitle(video.title.clone())
-                            .summary(video.description.clone())
-                            .image(video.thumbnail.clone())
-                            .duration(duration.hhmmss())
-                            .explicit("No".to_string())
-                            .build();
+                    let item_itunes_extension = ITunesItemExtensionBuilder::default()
+                        .author(title.clone())
+                        .subtitle(video.title.clone())
+                        .summary(video.description.clone())
+                        .image(video.thumbnail.clone())
+                        .duration(duration.hhmmss())
+                        .explicit("No".to_string())
+                        .build();
 
-                    let item_enclosure = rss::EnclosureBuilder::default()
+                    let item_enclosure = RSSEnclosureBuilder::default()
                         .url(format!("{}/{}.mp4", self.hostname, video.id)) // TODO: This needs to add a path segment based on the feed name
                         .length((video.filesize_approx.unwrap_or(0.0) as u64).to_string())
                         .mime_type("video/mp4")
                         .build();
 
-                    rss::ItemBuilder::default()
-                        .guid(rss::GuidBuilder::default().value(video.id.clone()).build())
+                    RSSItemBuilder::default()
+                        .guid(RSSGuidBuilder::default().value(video.id.clone()).build())
                         .title(video.title.clone())
                         .link(video.webpage_url.clone())
                         .pub_date(upload_date)
@@ -134,26 +153,23 @@ impl Channel {
         let mut rss_channel = self.rss_channel.clone().unwrap_or_else(|| {
             let link = playlist
                 .webpage_url
-                .unwrap_or(self.playlist_url.to_string());
+                .unwrap_or_else(|| self.playlist_url.to_string());
 
             let description = format!("Vodsync podcast feed for {}", title);
 
-            let rss_itunes_category = rss::extension::itunes::ITunesCategoryBuilder::default()
-                .text("TV & Film")
+            let rss_itunes_category = ITunesCategoryBuilder::default().text("TV & Film").build();
+
+            let rss_itunes_extension = ITunesChannelExtensionBuilder::default()
+                .author(title.clone())
+                .subtitle(title.clone())
+                .summary(description.clone())
+                .explicit("No".to_string())
+                // TODO: .image
+                .category(rss_itunes_category)
+                .block("Yes".to_string())
                 .build();
 
-            let rss_itunes_extension =
-                rss::extension::itunes::ITunesChannelExtensionBuilder::default()
-                    .author(title.clone())
-                    .subtitle(title.clone())
-                    .summary(description.clone())
-                    .explicit("No".to_string())
-                    // TODO: .image
-                    .category(rss_itunes_category)
-                    .block("Yes".to_string())
-                    .build();
-
-            rss::ChannelBuilder::default()
+            RSSChannelBuilder::default()
                 .title(title)
                 .link(link)
                 .description(description)
@@ -174,8 +190,8 @@ impl Channel {
         self.update_with_args(vec![])
     }
 
-    pub fn update_with_args(&mut self, args: Vec<String>) {
-        let mut ytdl = youtube_dl::YoutubeDl::new(self.playlist_url.clone());
+    pub fn update_with_args(&mut self, additional_args: Vec<String>) {
+        let mut ytdl = YoutubeDl::new(self.playlist_url.clone());
 
         ytdl.youtube_dl_path("yt-dlp");
 
@@ -186,23 +202,24 @@ impl Channel {
             .extra_arg("bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best");
 
         ytdl.extra_arg("--no-simulate");
+
+        additional_args.into_iter().for_each(|arg| {
+            ytdl.extra_arg(arg);
+        });
+
         ytdl.extra_arg("--no-progress");
         ytdl.extra_arg("--no-overwrites");
         ytdl.extra_arg("--output").extra_arg(
-            std::path::Path::new(&self.path)
+            Path::new(&self.path)
                 .join("%(id)s.%(ext)s")
                 .to_string_lossy(),
         );
 
-        args.into_iter().for_each(|arg| {
-            ytdl.extra_arg(arg);
-        });
-
-        let result = ytdl.run().unwrap();
+        let result = ytdl.run().expect("YoutubeDl run failed");
 
         debug!("{:#?}", result);
 
-        if let youtube_dl::YoutubeDlOutput::Playlist(playlist) = result {
+        if let YoutubeDlOutput::Playlist(playlist) = result {
             self.update_with_playlist(*playlist)
         } else {
             panic!("This URL points to a single video, not a channel!")
@@ -466,7 +483,7 @@ mod test {
         };
 
         let bytes = include_bytes!("../fixtures/mightycarmods.rss");
-        let reader = std::io::BufReader::new(&bytes[0..]);
+        let reader = BufReader::new(&bytes[0..]);
 
         let mut channel = super::Channel::new_with_reader(
             "mightycarmods".to_string(),

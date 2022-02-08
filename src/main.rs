@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate log;
+use std::fs::OpenOptions;
 use structopt::StructOpt;
+
+use vodsync::Channel;
 
 #[derive(StructOpt, Debug)]
 #[structopt()]
@@ -28,7 +31,7 @@ fn main() {
     let args = Args::from_args();
     debug!("{:?}", args);
 
-    let mut channel = vodsync::Channel::new_with_limit(
+    let mut channel = Channel::new_with_limit(
         args.channel_path.clone(),
         args.url,
         args.hostname,
@@ -39,7 +42,7 @@ fn main() {
 
     if let Some(ref channel) = channel.rss_channel {
         if args.write_feed {
-            let file = std::fs::OpenOptions::new()
+            let file = OpenOptions::new()
                 .write(true)
                 .create(true)
                 .open(format!("{}.xml", args.channel_path))
