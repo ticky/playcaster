@@ -1,6 +1,6 @@
 # Playcaster
 
-[![Rust](https://github.com/ticky/playcaster/actions/workflows/rust.yml/badge.svg)](https://github.com/ticky/playcaster/actions/workflows/rust.yml)
+[![Rust](https://github.com/ticky/playcaster/actions/workflows/rust.yml/badge.svg)](https://github.com/ticky/playcaster/actions/workflows/rust.yml) [![Docker](https://github.com/ticky/playcaster/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/ticky/playcaster/actions/workflows/docker-publish.yml)
 
 Turn any playlist[^1] into a Podcast feed
 
