@@ -19,7 +19,6 @@ use std::time::Duration;
 
 use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 
-const DEFAULT_LIMIT: usize = 50;
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,7 +28,6 @@ pub struct Channel {
     path: String, // TODO: Make this a PathBuf
     playlist_url: String,
     hostname: String,
-    limit: usize,
     pub rss_channel: Option<RSSChannel>,
 }
 
@@ -37,11 +35,10 @@ pub struct Channel {
 // - Ignore existing episodes (by date?)
 // - Delete old episodes when done
 impl Channel {
-    pub fn new_with_limit_and_reader<T: BufRead>(
+    pub fn new_with_reader<T: BufRead>(
         path: String,
         playlist_url: String,
         hostname: String,
-        limit: usize,
         reader: T,
     ) -> Self {
         let rss_channel = RSSChannel::read_from(reader).ok();
@@ -50,43 +47,23 @@ impl Channel {
             path,
             playlist_url,
             hostname,
-            limit,
             rss_channel,
         }
     }
 
-    pub fn new_with_reader<T: BufRead>(
-        path: String,
-        playlist_url: String,
-        hostname: String,
-        reader: T,
-    ) -> Self {
-        Self::new_with_limit_and_reader(path, playlist_url, hostname, DEFAULT_LIMIT, reader)
-    }
-
-    pub fn new_with_limit(
-        path: String,
-        playlist_url: String,
-        hostname: String,
-        limit: usize,
-    ) -> Self {
+    pub fn new(path: String, playlist_url: String, hostname: String) -> Self {
         match File::open(format!("{}.xml", path)) {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                Self::new_with_limit_and_reader(path, playlist_url, hostname, limit, reader)
+                Self::new_with_reader(path, playlist_url, hostname, reader)
             }
             Err(_) => Self {
                 path,
                 playlist_url,
                 hostname,
-                limit,
                 rss_channel: None,
             },
         }
-    }
-
-    pub fn new(path: String, playlist_url: String, hostname: String) -> Self {
-        Self::new_with_limit(path, playlist_url, hostname, DEFAULT_LIMIT)
     }
 
     fn update_with_playlist(&mut self, playlist: youtube_dl::Playlist) {
@@ -190,16 +167,16 @@ impl Channel {
     }
 
     pub fn update(&mut self) {
-        self.update_with_args(vec![])
+        self.update_with_args(50, vec![])
     }
 
-    pub fn update_with_args(&mut self, additional_args: Vec<String>) {
+    pub fn update_with_args(&mut self, download_limit: usize, additional_args: Vec<String>) {
         let mut ytdl = YoutubeDl::new(self.playlist_url.clone());
 
         ytdl.youtube_dl_path("yt-dlp");
 
         ytdl.extra_arg("--playlist-end")
-            .extra_arg(self.limit.to_string());
+            .extra_arg(download_limit.to_string());
 
         ytdl.extra_arg("--format")
             .extra_arg("bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best");

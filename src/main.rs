@@ -34,16 +34,11 @@ fn main() {
 
     debug!("{:?}", args);
 
-    let mut channel = Channel::new_with_limit(
-        args.channel_path.clone(),
-        args.url,
-        args.hostname,
-        args.limit,
-    );
+    let mut channel = Channel::new(args.channel_path.clone(), args.url, args.hostname);
 
     println!("Updating channel... (this can take a pretty long time)");
 
-    channel.update_with_args(args.downloader_arguments);
+    channel.update_with_args(args.limit, args.downloader_arguments);
 
     println!(" Done!");
 
