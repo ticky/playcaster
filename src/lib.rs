@@ -71,14 +71,12 @@ impl Channel {
         if feed_file.extension().is_none() {
             Err(Error::FileExtensionError(feed_file))
         } else {
-            let rss_channel = RSSChannel::read_from(reader).ok();
-
             // Don't pull the URL out of the RSS channel
 
             Ok(Self {
                 feed_file,
                 playlist_url,
-                rss_channel,
+                rss_channel: RSSChannel::read_from(reader).ok(),
             })
         }
     }
@@ -87,35 +85,30 @@ impl Channel {
         if feed_file.extension().is_none() {
             Err(Error::FileExtensionError(feed_file))
         } else {
-            match RSSChannel::read_from(reader) {
-                Ok(rss_channel) => match Url::parse(rss_channel.link()) {
-                    Ok(playlist_url) => Ok(Self {
-                        feed_file,
-                        playlist_url,
-                        rss_channel: Some(rss_channel),
-                    }),
-                    Err(error) => Err(error.into()),
-                },
-                Err(error) => Err(error.into()),
-            }
+            let rss_channel = RSSChannel::read_from(reader)?;
+
+            let playlist_url = Url::parse(rss_channel.link())?;
+
+            Ok(Self {
+                feed_file,
+                playlist_url,
+                rss_channel: Some(rss_channel),
+            })
         }
     }
 
     pub fn new_with_url(feed_file: PathBuf, playlist_url: Url) -> Result<Self, Error> {
         if feed_file.extension().is_none() {
             Err(Error::FileExtensionError(feed_file))
+        } else if let Ok(file) = File::open(feed_file.clone()) {
+            let reader = BufReader::new(file);
+            Self::new_with_reader_and_url(feed_file, playlist_url, reader)
         } else {
-            match File::open(feed_file.clone()) {
-                Ok(file) => {
-                    let reader = BufReader::new(file);
-                    Self::new_with_reader_and_url(feed_file, playlist_url, reader)
-                }
-                Err(_) => Ok(Self {
-                    feed_file,
-                    playlist_url,
-                    rss_channel: None,
-                }),
-            }
+            Ok(Self {
+                feed_file,
+                playlist_url,
+                rss_channel: None,
+            })
         }
     }
 

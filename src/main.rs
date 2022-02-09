@@ -15,6 +15,9 @@ struct Args {
     #[structopt(parse(from_os_str))]
     feed_file: PathBuf,
 
+    /// Base URL to server which will serve the feed items
+    base_url: Url,
+
     /// Playlist URL to download videos from.
     /// Required if creating a new feed, or if the feed's link element doesn't already point to a playlist URL.
     #[structopt(long)]
@@ -24,12 +27,9 @@ struct Args {
     #[structopt(default_value = "30", long)]
     limit: usize,
 
-    /// Base URL to server which will serve the feed items
-    base_url: Url,
-
-    /// Whether to write the updated RSS feed to disk
+    /// Do not write the updated RSS feed to disk; just print it to the terminal
     #[structopt(long)]
-    write_feed: bool,
+    no_write_feed: bool,
 
     /// Additional arguments to be passed to `yt-dlp`
     downloader_arguments: Vec<String>,
@@ -53,21 +53,24 @@ fn main() -> Result<()> {
 
     channel.update_with_args(args.base_url, args.limit, args.downloader_arguments)?;
 
-    println!(" Done!");
+    match channel.rss_channel {
+        Some(ref channel) => {
+            if args.no_write_feed {
+                print!("{:#}", channel.to_string());
+            } else {
+                let file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(args.feed_file)?;
 
-    if let Some(ref channel) = channel.rss_channel {
-        if args.write_feed {
-            let file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(args.feed_file)?;
-
-            channel.pretty_write_to(file, b' ', 2)?;
-        } else {
-            print!("{:#}", channel.to_string());
+                channel.pretty_write_to(file, b' ', 2)?;
+            }
         }
+        None => warn!("No RSS channel generated"),
     }
+
+    println!(" Done!");
 
     Ok(())
 }
