@@ -54,9 +54,9 @@ fn main() -> Result<()> {
     channel.update_with_args(args.base_url, args.limit, args.downloader_arguments)?;
 
     match channel.rss_channel {
-        Some(ref channel) => {
+        Some(ref rss_channel) => {
             if args.no_write_feed {
-                print!("{:#}", channel.to_string());
+                print!("{:#}", rss_channel.to_string());
             } else {
                 let file = OpenOptions::new()
                     .write(true)
@@ -64,7 +64,7 @@ fn main() -> Result<()> {
                     .truncate(true)
                     .open(args.feed_file)?;
 
-                channel.pretty_write_to(file, b' ', 2)?;
+                rss_channel.pretty_write_to(file, b' ', 2)?;
             }
         }
         None => warn!("No RSS channel generated"),

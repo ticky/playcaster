@@ -52,7 +52,7 @@ pub enum Error {
 }
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
-const PKG_REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
+const PKG_HOMEPAGE: &str = env!("CARGO_PKG_HOMEPAGE");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Represents a given RSS channel, which points at a video feed.
@@ -273,7 +273,7 @@ impl Channel {
                 .webpage_url
                 .unwrap_or_else(|| self.playlist_url.to_string()),
         );
-        rss_channel.set_generator(format!("{}/{} ({})", PKG_NAME, PKG_VERSION, PKG_REPOSITORY));
+        rss_channel.set_generator(format!("{}/{} ({})", PKG_NAME, PKG_VERSION, PKG_HOMEPAGE));
         rss_channel.set_items(unique_items);
 
         self.rss_channel = Some(rss_channel);
