@@ -109,7 +109,10 @@ impl Channel {
                     let item_enclosure = RSSEnclosureBuilder::default()
                         .url(
                             base_url
-                                .join(&self.feed_file.file_stem().unwrap().to_string_lossy())
+                                .join(&format!(
+                                    "{}/",
+                                    self.feed_file.file_stem().unwrap().to_string_lossy()
+                                ))
                                 .unwrap()
                                 .join(&format!("{}.mp4", video.id))
                                 .unwrap(),
@@ -536,10 +539,19 @@ mod test {
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         assert_eq!(rss_channel.items.len(), 1);
 
-        channel.update_with_playlist(Url::parse("http://localhost").unwrap(), playlist);
+        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), playlist);
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
         assert_eq!(rss_channel.items.len(), 2);
+
+        assert_eq!(
+            rss_channel.items[0].enclosure.as_ref().unwrap().url,
+            "http://localhost:8080/mightycarmods/QWkUFkXcx9I.mp4"
+        );
+        assert_eq!(
+            rss_channel.items[1].enclosure.as_ref().unwrap().url,
+            "http://localhost:8080/mightycarmods/Wqww1B9wljA.mp4"
+        );
     }
 }
