@@ -17,7 +17,7 @@ use rss::{
 use url::Url;
 
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -34,32 +34,61 @@ pub struct Channel {
     pub rss_channel: Option<RSSChannel>,
 }
 
-// TODO:
-// - Ignore existing episodes (by date?)
-// - Delete old episodes when done
 impl Channel {
-    pub fn new_with_reader<T: BufRead>(feed_file: PathBuf, playlist_url: Url, reader: T) -> Self {
+    pub fn new_with_reader_and_url<T: BufRead>(
+        feed_file: PathBuf,
+        playlist_url: Url,
+        reader: T,
+    ) -> Result<Self, Error> {
         let rss_channel = RSSChannel::read_from(reader).ok();
 
-        Self {
+        // Don't pull the URL out of the RSS channel
+
+        Ok(Self {
             feed_file,
             playlist_url,
             rss_channel,
+        })
+    }
+
+    pub fn new_with_reader<T: BufRead>(feed_file: PathBuf, reader: T) -> Result<Self, Error> {
+        match RSSChannel::read_from(reader) {
+            Ok(rss_channel) => match Url::parse(rss_channel.link()) {
+                Ok(playlist_url) => Ok(Self {
+                    feed_file,
+                    playlist_url,
+                    rss_channel: Some(rss_channel),
+                }),
+                Err(_error) => Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Failed to parse link URL from RSS feed",
+                )),
+            },
+            Err(_error) => Err(Error::new(
+                ErrorKind::InvalidData,
+                "Failed to parse RSS feed",
+            )),
         }
     }
 
-    pub fn new(feed_file: PathBuf, playlist_url: Url) -> Self {
+    pub fn new_with_url(feed_file: PathBuf, playlist_url: Url) -> Result<Self, Error> {
         match File::open(feed_file.clone()) {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                Self::new_with_reader(feed_file, playlist_url, reader)
+                Self::new_with_reader_and_url(feed_file, playlist_url, reader)
             }
-            Err(_) => Self {
+            Err(_) => Ok(Self {
                 feed_file,
                 playlist_url,
                 rss_channel: None,
-            },
+            }),
         }
+    }
+
+    pub fn new(feed_file: PathBuf) -> Result<Self, Error> {
+        let file = File::open(feed_file.clone())?;
+        let reader = BufReader::new(file);
+        Self::new_with_reader(feed_file, reader)
     }
 
     fn update_with_playlist(&mut self, base_url: Url, playlist: youtube_dl::Playlist) {
@@ -475,7 +504,7 @@ mod test {
     }
 
     #[test]
-    fn test_update_new_with_playlist() {
+    fn test_update_new_with_playlist() -> Result<(), std::io::Error> {
         use rss::validation::Validate;
         use url::Url;
 
@@ -494,20 +523,22 @@ mod test {
             webpage_url_basename: Some("mightycarmods".to_string()),
         };
 
-        let mut channel = super::Channel::new(
+        let mut channel = super::Channel::new_with_url(
             std::path::Path::new("mightycarmods.xml").to_path_buf(),
             Url::parse("https://www.youtube.com/c/mightycarmods").unwrap(),
-        );
+        )?;
 
         channel.update_with_playlist(Url::parse("http://localhost").unwrap(), playlist);
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
         assert_eq!(rss_channel.items.len(), 1);
+
+        Ok(())
     }
 
     #[test]
-    fn test_update_existing_with_playlist() {
+    fn test_update_existing_with_playlist() -> Result<(), std::io::Error> {
         use rss::validation::Validate;
         use std::io::BufReader;
         use url::Url;
@@ -532,9 +563,8 @@ mod test {
 
         let mut channel = super::Channel::new_with_reader(
             std::path::Path::new("mightycarmods.xml").to_path_buf(),
-            Url::parse("https://www.youtube.com/c/mightycarmods").unwrap(),
             reader,
-        );
+        )?;
 
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         assert_eq!(rss_channel.items.len(), 1);
@@ -553,5 +583,7 @@ mod test {
             rss_channel.items[1].enclosure.as_ref().unwrap().url,
             "http://localhost:8080/mightycarmods/Wqww1B9wljA.mp4"
         );
+
+        Ok(())
     }
 }
