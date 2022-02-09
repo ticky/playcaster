@@ -25,26 +25,34 @@ use thiserror::Error as ThisError;
 
 use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 
+/// Wrapper error types
 #[derive(ThisError, Debug)]
 pub enum Error {
+    /// Error case where a `std::io::Error` was encountered while reading or writing to disk
     #[error("I/O error")]
     IoError(#[from] std::io::Error),
 
+    /// Error case where an `rss::Error` was encountered while parsing the RSS feed
     #[error("RSS feed error")]
     FeedError(#[from] rss::Error),
 
+    /// Error case where a `url::ParseError` was encountered
     #[error("URL parsing error")]
     UrlError(#[from] url::ParseError),
 
+    /// Error case where a `youtube_dl::Error` was encountered
     #[error("error in downloader")]
     YtDlError(#[from] youtube_dl::Error),
 
+    /// Error case the supplied `feed_file` path was invalid
     #[error("invalid feed file path: \"{0}\"")]
     ParentPathError(PathBuf),
 
+    /// Error case the supplied `feed_file` path was invalid due to not having a name
     #[error("invalid feed file path: \"{0}\" (file must have a name)")]
     FileStemError(PathBuf),
 
+    /// Error case the supplied `feed_file` path was invalid due to not having an extension
     #[error(
         "invalid feed file path: \"{0}\" (file must have an extension - \"xml\" is a good one!)"
     )]
