@@ -29,6 +29,7 @@ struct Args {
 
     /// Maximum number of videos to keep for the given channel.
     /// Any older videos will be deleted when the feed updates.
+    /// Should be greater than or equal to `limit`.
     #[structopt(long)]
     keep: Option<usize>,
 
@@ -51,7 +52,7 @@ fn main() -> Result<()> {
 
     println!("Starting up...");
 
-    debug!("{:?}", args);
+    trace!("{:?}", args);
 
     let mut channel = match args.playlist_url {
         Some(url) => Channel::new_with_url(args.feed_file.clone(), url),
@@ -83,7 +84,7 @@ fn main() -> Result<()> {
         None => warn!("No RSS channel generated"),
     }
 
-    println!(" Done!");
+    println!("Done!");
 
     Ok(())
 }

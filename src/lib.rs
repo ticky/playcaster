@@ -343,7 +343,7 @@ impl Channel {
 
         let result = ytdl.run()?;
 
-        debug!("{:#?}", result);
+        trace!("{:#?}", result);
 
         if let YoutubeDlOutput::Playlist(playlist) = result {
             self.update_with_playlist(base_url, keep, *playlist)
