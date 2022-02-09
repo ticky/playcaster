@@ -4,6 +4,16 @@
 
 Turn any playlist[^1] into a Podcast feed
 
+## Installation
+
+Playcaster can be installed from Cargo:
+
+```sh
+cargo install playcaster
+```
+
+You will additionally need `yt-dlp` installed. Instructions for that can be found at <https://github.com/yt-dlp/yt-dlp#installation>.
+
 ## Usage
 
 `playcaster <feed-file> <base-url> [downloader-arguments]...`
@@ -24,12 +34,17 @@ playcaster \
 
 Items after `--` are passed on to `yt-dlp`, to configure its extraction or filter results.
 
-## Docker Usage
+## Docker Installation & Usage
 
-A Docker image is supplied for ease of use in environments like a NAS:
+A Docker image is supplied for ease of use in environments like a NAS, and can be installed with the following command:
 
 ```sh
 docker pull ghcr.io/ticky/playcaster:main
+```
+
+It can be run as follows, substituting `$HOME/htdocs/feeds` for where your feeds should be on your host system:
+
+```sh
 docker run --rm -v $HOME/htdocs/feeds:/feeds -it ghcr.io/ticky/playcaster:main \
 		/feeds/playlist.xml \
 		"http://your-podcast-server.example" \
