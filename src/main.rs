@@ -9,7 +9,7 @@ use url::Url;
 use playcaster::Channel;
 
 #[derive(StructOpt, Debug)]
-#[structopt()]
+/// Turn any playlist into a Podcast feed
 struct Args {
     /// Path to the channel's RSS feed file
     #[structopt(parse(from_os_str))]
