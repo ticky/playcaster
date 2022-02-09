@@ -61,12 +61,9 @@ fn main() -> Result<()> {
                 .write(true)
                 .create(true)
                 .truncate(true)
-                .open(args.feed_file)
-                .expect("Unable to open file for writing");
+                .open(args.feed_file)?;
 
-            channel
-                .pretty_write_to(file, b' ', 2)
-                .expect("Couldn't write XML to file");
+            channel.pretty_write_to(file, b' ', 2)?;
         } else {
             print!("{:#}", channel.to_string());
         }

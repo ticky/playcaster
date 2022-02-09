@@ -42,8 +42,13 @@ pub enum Error {
     #[error("invalid feed file path: \"{0}\"")]
     ParentPathError(PathBuf),
 
-    #[error("file path missing file stem: \"{0}\"")]
+    #[error("invalid feed file path: \"{0}\" (file must have a name)")]
     FileStemError(PathBuf),
+
+    #[error(
+        "invalid feed file path: \"{0}\" (file must have an extension - \"xml\" is a good one!)"
+    )]
+    FileExtensionError(PathBuf),
 }
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
@@ -63,49 +68,65 @@ impl Channel {
         playlist_url: Url,
         reader: T,
     ) -> Result<Self, Error> {
-        let rss_channel = RSSChannel::read_from(reader).ok();
+        if feed_file.extension().is_none() {
+            Err(Error::FileExtensionError(feed_file))
+        } else {
+            let rss_channel = RSSChannel::read_from(reader).ok();
 
-        // Don't pull the URL out of the RSS channel
+            // Don't pull the URL out of the RSS channel
 
-        Ok(Self {
-            feed_file,
-            playlist_url,
-            rss_channel,
-        })
+            Ok(Self {
+                feed_file,
+                playlist_url,
+                rss_channel,
+            })
+        }
     }
 
     pub fn new_with_reader<T: BufRead>(feed_file: PathBuf, reader: T) -> Result<Self, Error> {
-        match RSSChannel::read_from(reader) {
-            Ok(rss_channel) => match Url::parse(rss_channel.link()) {
-                Ok(playlist_url) => Ok(Self {
-                    feed_file,
-                    playlist_url,
-                    rss_channel: Some(rss_channel),
-                }),
+        if feed_file.extension().is_none() {
+            Err(Error::FileExtensionError(feed_file))
+        } else {
+            match RSSChannel::read_from(reader) {
+                Ok(rss_channel) => match Url::parse(rss_channel.link()) {
+                    Ok(playlist_url) => Ok(Self {
+                        feed_file,
+                        playlist_url,
+                        rss_channel: Some(rss_channel),
+                    }),
+                    Err(error) => Err(error.into()),
+                },
                 Err(error) => Err(error.into()),
-            },
-            Err(error) => Err(error.into()),
+            }
         }
     }
 
     pub fn new_with_url(feed_file: PathBuf, playlist_url: Url) -> Result<Self, Error> {
-        match File::open(feed_file.clone()) {
-            Ok(file) => {
-                let reader = BufReader::new(file);
-                Self::new_with_reader_and_url(feed_file, playlist_url, reader)
+        if feed_file.extension().is_none() {
+            Err(Error::FileExtensionError(feed_file))
+        } else {
+            match File::open(feed_file.clone()) {
+                Ok(file) => {
+                    let reader = BufReader::new(file);
+                    Self::new_with_reader_and_url(feed_file, playlist_url, reader)
+                }
+                Err(_) => Ok(Self {
+                    feed_file,
+                    playlist_url,
+                    rss_channel: None,
+                }),
             }
-            Err(_) => Ok(Self {
-                feed_file,
-                playlist_url,
-                rss_channel: None,
-            }),
         }
     }
 
     pub fn new(feed_file: PathBuf) -> Result<Self, Error> {
-        let file = File::open(feed_file.clone())?;
-        let reader = BufReader::new(file);
-        Self::new_with_reader(feed_file, reader)
+        if feed_file.extension().is_none() {
+            Err(Error::FileExtensionError(feed_file))
+        } else {
+            let file = File::open(feed_file.clone())?;
+            let reader = BufReader::new(file);
+            Self::new_with_reader(feed_file, reader)
+        }
     }
 
     fn update_with_playlist(
