@@ -170,10 +170,6 @@ impl Channel {
 
         // Retrieve the existing RSS channel, or create a new one
         let mut rss_channel = self.rss_channel.clone().unwrap_or_else(|| {
-            let link = playlist
-                .webpage_url
-                .unwrap_or_else(|| self.playlist_url.to_string());
-
             let description = format!("{} podcast feed for {}", PKG_NAME, title);
 
             let rss_itunes_category = ITunesCategoryBuilder::default().text("TV & Film").build();
@@ -183,14 +179,12 @@ impl Channel {
                 .subtitle(title.clone())
                 .summary(description.clone())
                 .explicit("No".to_string())
-                // TODO: .image
                 .category(rss_itunes_category)
                 .block("Yes".to_string())
                 .build();
 
             RSSChannelBuilder::default()
                 .title(title)
-                .link(link)
                 .description(description)
                 .itunes_ext(rss_itunes_extension)
                 .build()
@@ -230,6 +224,21 @@ impl Channel {
             }
         }
 
+        if let Some(ref mut channel_itunes_ext) = rss_channel.itunes_ext {
+            for item in &unique_items {
+                if let Some(ref item_ext) = item.itunes_ext {
+                    println!("{:?}, {:?}", item, item_ext);
+                    channel_itunes_ext.image = item_ext.image.clone();
+                    break;
+                }
+            }
+        }
+
+        rss_channel.set_link(
+            playlist
+                .webpage_url
+                .unwrap_or_else(|| self.playlist_url.to_string()),
+        );
         rss_channel.set_generator(format!("{}/{} ({})", PKG_NAME, PKG_VERSION, PKG_REPOSITORY));
         rss_channel.set_items(unique_items);
 
