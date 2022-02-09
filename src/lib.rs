@@ -55,6 +55,8 @@ const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_HOMEPAGE: &str = env!("CARGO_PKG_HOMEPAGE");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+const DEFAULT_DOWNLOAD_LIMIT: usize = 30;
+
 /// Represents a given RSS channel, which points at a video feed.
 pub struct Channel {
     feed_file: PathBuf,
@@ -125,6 +127,7 @@ impl Channel {
     fn update_with_playlist(
         &mut self,
         base_url: Url,
+        keep: Option<usize>,
         playlist: youtube_dl::Playlist,
     ) -> Result<(), Error> {
         let title = playlist
@@ -232,30 +235,32 @@ impl Channel {
             .unique_by(|item| item.guid().unwrap().value().to_string())
             .collect();
 
-        if unique_items.len() > 50 {
-            let removed_items: Vec<_> = unique_items.drain(50..).collect();
+        if let Some(keep_item_count) = keep {
+            if unique_items.len() > keep_item_count {
+                let removed_items: Vec<_> = unique_items.drain(keep_item_count..).collect();
 
-            for item in removed_items {
-                let id = item.guid().unwrap().value().to_string();
+                for item in removed_items {
+                    let id = item.guid().unwrap().value().to_string();
 
-                let path = Path::new(
-                    &self
-                        .feed_file
-                        .parent()
-                        .ok_or_else(|| Error::ParentPathError(self.feed_file.clone()))?,
-                )
-                .join(
-                    &self
-                        .feed_file
-                        .file_stem()
-                        .ok_or_else(|| Error::FileStemError(self.feed_file.clone()))?,
-                )
-                .join(format!("{}.mp4", id));
+                    let path = Path::new(
+                        &self
+                            .feed_file
+                            .parent()
+                            .ok_or_else(|| Error::ParentPathError(self.feed_file.clone()))?,
+                    )
+                    .join(
+                        &self
+                            .feed_file
+                            .file_stem()
+                            .ok_or_else(|| Error::FileStemError(self.feed_file.clone()))?,
+                    )
+                    .join(format!("{}.mp4", id));
 
-                debug!("Attempting to remove file: {:?}", path);
+                    debug!("Attempting to remove file: {:?}", path);
 
-                std::fs::remove_file(path)
-                    .unwrap_or_else(|err| warn!("Couldn't remove file: {:?}", err));
+                    std::fs::remove_file(path)
+                        .unwrap_or_else(|err| warn!("Couldn't remove file: {:?}", err));
+                }
             }
         }
 
@@ -281,14 +286,15 @@ impl Channel {
         Ok(())
     }
 
-    pub fn update(&mut self, base_url: Url) -> Result<(), Error> {
-        self.update_with_args(base_url, 50, vec![])
+    pub fn update(&mut self, base_url: Url, keep: Option<usize>) -> Result<(), Error> {
+        self.update_with_args(base_url, DEFAULT_DOWNLOAD_LIMIT, keep, vec![])
     }
 
     pub fn update_with_args(
         &mut self,
         base_url: Url,
         download_limit: usize,
+        keep: Option<usize>,
         additional_args: Vec<String>,
     ) -> Result<(), Error> {
         let mut ytdl = YoutubeDl::new(self.playlist_url.clone());
@@ -332,7 +338,7 @@ impl Channel {
         debug!("{:#?}", result);
 
         if let YoutubeDlOutput::Playlist(playlist) = result {
-            self.update_with_playlist(base_url, *playlist)
+            self.update_with_playlist(base_url, keep, *playlist)
         } else {
             panic!("This URL points to a single video, not a channel!")
         }
@@ -576,7 +582,7 @@ mod test {
             Url::parse("https://www.youtube.com/c/mightycarmods").unwrap(),
         )?;
 
-        channel.update_with_playlist(Url::parse("http://localhost").unwrap(), playlist)?;
+        channel.update_with_playlist(Url::parse("http://localhost").unwrap(), None, playlist)?;
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
@@ -586,7 +592,7 @@ mod test {
     }
 
     #[test]
-    fn test_update_existing_with_playlist() -> Result<(), Error> {
+    fn test_update_existing_with_playlist_and_truncation() -> Result<(), Error> {
         use rss::validation::Validate;
         use std::io::BufReader;
         use url::Url;
@@ -617,8 +623,8 @@ mod test {
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         assert_eq!(rss_channel.items.len(), 1);
 
-        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), playlist)?;
-        let rss_channel = channel.rss_channel.unwrap();
+        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), None, playlist.clone())?;
+        let rss_channel = channel.rss_channel.as_ref().unwrap();
         rss_channel.validate().unwrap();
 
         assert_eq!(rss_channel.items.len(), 2);
@@ -631,6 +637,12 @@ mod test {
             rss_channel.items[1].enclosure.as_ref().unwrap().url,
             "http://localhost:8080/mightycarmods/Wqww1B9wljA.mp4"
         );
+
+        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), Some(1), playlist.clone())?;
+        let rss_channel = channel.rss_channel.unwrap();
+        rss_channel.validate().unwrap();
+
+        assert_eq!(rss_channel.items.len(), 1);
 
         Ok(())
     }

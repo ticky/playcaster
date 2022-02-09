@@ -27,9 +27,18 @@ struct Args {
     #[structopt(default_value = "30", long)]
     limit: usize,
 
+    /// Maximum number of videos to keep for the given channel.
+    /// Any older videos will be deleted when the feed updates.
+    #[structopt(long)]
+    keep: Option<usize>,
+
     /// Do not write the updated RSS feed to disk; just print it to the terminal
     #[structopt(long)]
     no_write_feed: bool,
+
+    /// Write terse RSS XML to disk, rather than the default pretty-printed version
+    #[structopt(long)]
+    no_pretty: bool,
 
     /// Additional arguments to be passed to `yt-dlp`
     downloader_arguments: Vec<String>,
@@ -51,7 +60,7 @@ fn main() -> Result<()> {
 
     println!("Updating channel... (this can take a pretty long time)");
 
-    channel.update_with_args(args.base_url, args.limit, args.downloader_arguments)?;
+    channel.update_with_args(args.base_url, args.limit, args.keep, args.downloader_arguments)?;
 
     match channel.rss_channel {
         Some(ref rss_channel) => {
@@ -64,7 +73,11 @@ fn main() -> Result<()> {
                     .truncate(true)
                     .open(args.feed_file)?;
 
-                rss_channel.pretty_write_to(file, b' ', 2)?;
+                if args.no_pretty {
+                    rss_channel.write_to(file)?;
+                } else {
+                    rss_channel.pretty_write_to(file, b' ', 2)?;
+                }
             }
         }
         None => warn!("No RSS channel generated"),
