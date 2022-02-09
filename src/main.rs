@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate log;
+use anyhow::Result;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -34,7 +35,7 @@ struct Args {
     downloader_arguments: Vec<String>,
 }
 
-fn main() -> Result<(), std::io::Error> {
+fn main() -> Result<()> {
     env_logger::init();
 
     let args = Args::from_args();
@@ -50,7 +51,7 @@ fn main() -> Result<(), std::io::Error> {
 
     println!("Updating channel... (this can take a pretty long time)");
 
-    channel.update_with_args(args.base_url, args.limit, args.downloader_arguments);
+    channel.update_with_args(args.base_url, args.limit, args.downloader_arguments)?;
 
     println!(" Done!");
 
@@ -67,7 +68,7 @@ fn main() -> Result<(), std::io::Error> {
                 .pretty_write_to(file, b' ', 2)
                 .expect("Couldn't write XML to file");
         } else {
-            print!("{}", channel.to_string());
+            print!("{:#}", channel.to_string());
         }
     }
 

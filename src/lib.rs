@@ -17,11 +17,34 @@ use rss::{
 use url::Url;
 
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, ErrorKind};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use thiserror::Error as ThisError;
+
 use youtube_dl::{YoutubeDl, YoutubeDlOutput};
+
+#[derive(ThisError, Debug)]
+pub enum Error {
+    #[error("I/O error")]
+    IoError(#[from] std::io::Error),
+
+    #[error("RSS feed error")]
+    FeedError(#[from] rss::Error),
+
+    #[error("URL parsing error")]
+    UrlError(#[from] url::ParseError),
+
+    #[error("error in downloader")]
+    YtDlError(#[from] youtube_dl::Error),
+
+    #[error("invalid feed file path: \"{0}\"")]
+    ParentPathError(PathBuf),
+
+    #[error("file path missing file stem: \"{0}\"")]
+    FileStemError(PathBuf),
+}
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
@@ -59,15 +82,9 @@ impl Channel {
                     playlist_url,
                     rss_channel: Some(rss_channel),
                 }),
-                Err(_error) => Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Failed to parse link URL from RSS feed",
-                )),
+                Err(error) => Err(error.into()),
             },
-            Err(_error) => Err(Error::new(
-                ErrorKind::InvalidData,
-                "Failed to parse RSS feed",
-            )),
+            Err(error) => Err(error.into()),
         }
     }
 
@@ -91,7 +108,11 @@ impl Channel {
         Self::new_with_reader(feed_file, reader)
     }
 
-    fn update_with_playlist(&mut self, base_url: Url, playlist: youtube_dl::Playlist) {
+    fn update_with_playlist(
+        &mut self,
+        base_url: Url,
+        playlist: youtube_dl::Playlist,
+    ) -> Result<(), Error> {
         let title = playlist
             .title
             .as_ref()
@@ -207,13 +228,13 @@ impl Channel {
                     &self
                         .feed_file
                         .parent()
-                        .expect("Can't write to the root directory"),
+                        .ok_or_else(|| Error::ParentPathError(self.feed_file.clone()))?,
                 )
                 .join(
                     &self
                         .feed_file
                         .file_stem()
-                        .expect("Can't write to file with no name"),
+                        .ok_or_else(|| Error::FileStemError(self.feed_file.clone()))?,
                 )
                 .join(format!("{}.mp4", id));
 
@@ -227,7 +248,6 @@ impl Channel {
         if let Some(ref mut channel_itunes_ext) = rss_channel.itunes_ext {
             for item in &unique_items {
                 if let Some(ref item_ext) = item.itunes_ext {
-                    println!("{:?}, {:?}", item, item_ext);
                     channel_itunes_ext.image = item_ext.image.clone();
                     break;
                 }
@@ -243,9 +263,11 @@ impl Channel {
         rss_channel.set_items(unique_items);
 
         self.rss_channel = Some(rss_channel);
+
+        Ok(())
     }
 
-    pub fn update(&mut self, base_url: Url) {
+    pub fn update(&mut self, base_url: Url) -> Result<(), Error> {
         self.update_with_args(base_url, 50, vec![])
     }
 
@@ -254,7 +276,7 @@ impl Channel {
         base_url: Url,
         download_limit: usize,
         additional_args: Vec<String>,
-    ) {
+    ) -> Result<(), Error> {
         let mut ytdl = YoutubeDl::new(self.playlist_url.clone());
 
         ytdl.youtube_dl_path("yt-dlp");
@@ -271,6 +293,7 @@ impl Channel {
             ytdl.extra_arg(arg);
         });
 
+        // NOTE: Required because `yt-dlp` prints progress to stdout and breaks YoutubeDl when `--no-simulate` is specified
         ytdl.extra_arg("--no-progress");
         ytdl.extra_arg("--no-overwrites");
         ytdl.extra_arg("--output").extra_arg(
@@ -278,19 +301,19 @@ impl Channel {
                 &self
                     .feed_file
                     .parent()
-                    .expect("Can't write to the root directory"),
+                    .ok_or_else(|| Error::ParentPathError(self.feed_file.clone()))?,
             )
             .join(
                 &self
                     .feed_file
                     .file_stem()
-                    .expect("Can't write to file with no name"),
+                    .ok_or_else(|| Error::FileStemError(self.feed_file.clone()))?,
             )
             .join("%(id)s.%(ext)s")
             .to_string_lossy(),
         );
 
-        let result = ytdl.run().expect("YoutubeDl run failed");
+        let result = ytdl.run()?;
 
         debug!("{:#?}", result);
 
@@ -512,8 +535,10 @@ mod test {
         }
     }
 
+    use crate::Error;
+
     #[test]
-    fn test_update_new_with_playlist() -> Result<(), std::io::Error> {
+    fn test_update_new_with_playlist() -> Result<(), Error> {
         use rss::validation::Validate;
         use url::Url;
 
@@ -537,7 +562,7 @@ mod test {
             Url::parse("https://www.youtube.com/c/mightycarmods").unwrap(),
         )?;
 
-        channel.update_with_playlist(Url::parse("http://localhost").unwrap(), playlist);
+        channel.update_with_playlist(Url::parse("http://localhost").unwrap(), playlist)?;
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
@@ -547,7 +572,7 @@ mod test {
     }
 
     #[test]
-    fn test_update_existing_with_playlist() -> Result<(), std::io::Error> {
+    fn test_update_existing_with_playlist() -> Result<(), Error> {
         use rss::validation::Validate;
         use std::io::BufReader;
         use url::Url;
@@ -578,7 +603,7 @@ mod test {
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         assert_eq!(rss_channel.items.len(), 1);
 
-        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), playlist);
+        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), playlist)?;
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 
