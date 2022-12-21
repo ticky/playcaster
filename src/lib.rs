@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use chrono::{Date, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 
 use itertools::Itertools;
 
@@ -162,13 +162,12 @@ impl Channel {
                     };
 
                     let upload_date = video.upload_date.as_ref().map(|date| {
-                        Date::<Utc>::from_utc(
-                            NaiveDate::parse_from_str(date, "%Y%m%d").unwrap_or_else(|_| {
-                                panic!("Unexpected date format in date: {:?}", date)
+                        DateTime::<Utc>::from_utc(
+                            NaiveDateTime::parse_from_str(&format!("{}T00:00Z", date), "%Y%m%dT%H:%MZ").unwrap_or_else(|error| {
+                                panic!("Error: {} parsing {:?}", error, date)
                             }),
                             Utc,
                         )
-                        .and_hms(0, 0, 0)
                         .to_rfc2822()
                     });
 
@@ -181,6 +180,7 @@ impl Channel {
                         .explicit("No".to_string())
                         .build();
 
+                    // TODO: If this file doesn't exist on disk, error/skip
                     let item_enclosure = RSSEnclosureBuilder::default()
                         .url(
                             base_url
