@@ -44,6 +44,10 @@ pub enum Error {
     #[error("error in downloader")]
     YtDlError(#[from] youtube_dl::Error),
 
+    /// Error case where all target files were zero-duration after downloading
+    #[error("all entries in \"{0}\" had a zero duration. This likely means the target playlist was a playlist of other playlists")]
+    AllDownloadsEmptyError(Url),
+
     /// Error case the supplied `feed_file` path was invalid
     #[error("invalid feed file path: \"{0}\"")]
     ParentPathError(PathBuf),
@@ -144,6 +148,8 @@ impl Channel {
             .unwrap_or(&self.playlist_url.to_string())
             .clone();
 
+        let mut zero_duration_item_paths = vec![];
+
         let mut rss_items: Vec<RSSItem> = match playlist.entries {
             Some(ref entries) => entries
                 .iter()
@@ -161,11 +167,21 @@ impl Channel {
                         None => Duration::default(),
                     };
 
+                    let item_path = Path::new(&self.feed_file.parent().unwrap())
+                        .join(&self.feed_file.file_stem().unwrap())
+                        .join(format!("{}.mp4", video.id));
+
+                    if duration.is_zero() {
+                        zero_duration_item_paths.push(item_path);
+                    }
+
                     let upload_date = video.upload_date.as_ref().map(|date| {
                         DateTime::<Utc>::from_utc(
-                            NaiveDateTime::parse_from_str(&format!("{}T00:00Z", date), "%Y%m%dT%H:%MZ").unwrap_or_else(|error| {
-                                panic!("Error: {} parsing {:?}", error, date)
-                            }),
+                            NaiveDateTime::parse_from_str(
+                                &format!("{}T00:00Z", date),
+                                "%Y%m%dT%H:%MZ",
+                            )
+                            .unwrap_or_else(|error| panic!("Error: {} parsing {:?}", error, date)),
                             Utc,
                         )
                         .to_rfc2822()
@@ -179,8 +195,6 @@ impl Channel {
                         .duration(duration.hhmmss())
                         .explicit("No".to_string())
                         .build();
-
-                    // TODO: If this file doesn't exist on disk, error/skip
                     let item_enclosure = RSSEnclosureBuilder::default()
                         .url(
                             base_url
@@ -213,6 +227,13 @@ impl Channel {
                 .collect(),
             None => vec![],
         };
+
+        if !rss_items.is_empty() && zero_duration_item_paths.len() == rss_items.len() {
+            eprintln!("Your playlist URL might be invalid. {:?}", zero_duration_item_paths);
+            return Err(Error::AllDownloadsEmptyError(self.playlist_url.clone()));
+        } else if !zero_duration_item_paths.is_empty() {
+            eprintln!("WARNING: One or more files were not found on disk!\nYour playlist URL might be invalid. {:?}", zero_duration_item_paths);
+        }
 
         // Retrieve the existing RSS channel, or create a new one
         let mut rss_channel = self.rss_channel.clone().unwrap_or_else(|| {
@@ -631,7 +652,11 @@ mod test {
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         assert_eq!(rss_channel.items.len(), 1);
 
-        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), None, playlist.clone())?;
+        channel.update_with_playlist(
+            Url::parse("http://localhost:8080").unwrap(),
+            None,
+            playlist.clone(),
+        )?;
         let rss_channel = channel.rss_channel.as_ref().unwrap();
         rss_channel.validate().unwrap();
 
@@ -646,7 +671,11 @@ mod test {
             "http://localhost:8080/mightycarmods/Wqww1B9wljA.mp4"
         );
 
-        channel.update_with_playlist(Url::parse("http://localhost:8080").unwrap(), Some(1), playlist.clone())?;
+        channel.update_with_playlist(
+            Url::parse("http://localhost:8080").unwrap(),
+            Some(1),
+            playlist.clone(),
+        )?;
         let rss_channel = channel.rss_channel.unwrap();
         rss_channel.validate().unwrap();
 

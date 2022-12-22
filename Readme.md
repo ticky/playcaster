@@ -32,6 +32,8 @@ playcaster \
 
 `--playlist-url` specifies the playlist to fetch items from. It only needs to be specified if `<feed-file>` doesn't exist yet, or doesn't have a `<link/>` which already points to the playlist.
 
+NOTE: Since [yt-dlp 2022.11.11](https://github.com/yt-dlp/yt-dlp/releases/tag/2022.11.11), plain YouTube channel URLs download as a series of playlists. Playcaster v0.0.2 has been updated to emit an error if all of the items in the target playlist have an apparent duration of zero. You may need to update channel URLs to refer to a specific tab (i.e. `/videos`) or use a playlist instead.
+
 Items after `--` are passed on to `yt-dlp`, to configure its extraction or filter results.
 
 ## Docker Installation & Usage

@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate log;
 use anyhow::Result;
+use clap::Parser;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
-use clap::Parser;
 use url::Url;
 
 use playcaster::Channel;
@@ -62,7 +62,12 @@ fn main() -> Result<()> {
 
     println!("Updating channel... (this can take a pretty long time)");
 
-    channel.update_with_args(args.base_url, args.limit, args.keep, args.downloader_arguments)?;
+    channel.update_with_args(
+        args.base_url,
+        args.limit,
+        args.keep,
+        args.downloader_arguments,
+    )?;
 
     match channel.rss_channel {
         Some(ref rss_channel) => {
