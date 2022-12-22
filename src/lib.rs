@@ -63,16 +63,21 @@ pub enum Error {
     FileExtensionError(PathBuf),
 }
 
-const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+pub const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_HOMEPAGE: &str = env!("CARGO_PKG_HOMEPAGE");
-const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const DEFAULT_DOWNLOAD_LIMIT: usize = 30;
 
 /// Represents a given RSS channel, which points at a video feed.
 pub struct Channel {
-    feed_file: PathBuf,
-    playlist_url: Url,
+    /// Path to the input RSS feed
+    pub feed_file: PathBuf,
+
+    /// URL to the playlist with videos to be downloaded
+    pub playlist_url: Url,
+
+    /// The RSS feed
     pub rss_channel: Option<RSSChannel>,
 }
 
@@ -229,10 +234,9 @@ impl Channel {
         };
 
         if !rss_items.is_empty() && zero_duration_item_paths.len() == rss_items.len() {
-            eprintln!("Your playlist URL might be invalid. {:?}", zero_duration_item_paths);
             return Err(Error::AllDownloadsEmptyError(self.playlist_url.clone()));
         } else if !zero_duration_item_paths.is_empty() {
-            eprintln!("WARNING: One or more files were not found on disk!\nYour playlist URL might be invalid. {:?}", zero_duration_item_paths);
+            warn!("One or more files were not found on disk!\nYour playlist URL might be invalid. {:?}", zero_duration_item_paths);
         }
 
         // Retrieve the existing RSS channel, or create a new one

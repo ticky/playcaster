@@ -51,7 +51,7 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    println!("Starting up...");
+    println!("{} v{} Starting up...", playcaster::PKG_NAME, playcaster::PKG_VERSION);
 
     trace!("{:?}", args);
 
@@ -60,7 +60,7 @@ fn main() -> Result<()> {
         None => Channel::new(args.feed_file.clone()),
     }?;
 
-    println!("Updating channel... (this can take a pretty long time)");
+    println!("Updating RSS feed in {:?} with contents of playlist {}... (this can take a pretty long time)", channel.feed_file, channel.playlist_url);
 
     channel.update_with_args(
         args.base_url,
