@@ -13,7 +13,7 @@ use playcaster::Channel;
 /// Turn any playlist into a Podcast feed
 struct Args {
     /// Path to the channel's RSS feed file
-    #[clap(parse(from_os_str))]
+    #[clap(value_parser)]
     feed_file: PathBuf,
 
     /// Base URL to server which will serve the feed items
@@ -51,7 +51,11 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    println!("{} v{} Starting up...", playcaster::PKG_NAME, playcaster::PKG_VERSION);
+    println!(
+        "{} v{} Starting up...",
+        playcaster::PKG_NAME,
+        playcaster::PKG_VERSION
+    );
 
     trace!("{:?}", args);
 
