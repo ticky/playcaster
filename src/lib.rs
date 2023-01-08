@@ -481,6 +481,7 @@ mod test {
             view_count: Some(294645),
             webpage_url: Some("https://www.youtube.com/watch?v=QWkUFkXcx9I".to_string()),
             width: Some(1920),
+            ..Default::default()
         }
     }
 
@@ -585,6 +586,7 @@ mod test {
             view_count: Some(294645),
             webpage_url: Some("https://www.youtube.com/watch?v=QWkUFkXcx9I".to_string()),
             width: Some(1920),
+            ..Default::default()
         }
     }
 
@@ -608,6 +610,7 @@ mod test {
             ),
             webpage_url: Some("https://www.youtube.com/c/mightycarmods".to_string()),
             webpage_url_basename: Some("mightycarmods".to_string()),
+            ..Default::default()
         };
 
         let mut channel = super::Channel::new_with_url(
@@ -643,6 +646,7 @@ mod test {
             ),
             webpage_url: Some("https://www.youtube.com/c/mightycarmods".to_string()),
             webpage_url_basename: Some("mightycarmods".to_string()),
+            ..Default::default()
         };
 
         let bytes = include_bytes!("../fixtures/mightycarmods.rss");
