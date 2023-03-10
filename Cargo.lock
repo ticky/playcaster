@@ -1180,8 +1180,9 @@ checksum = "f40009d85759725a34da6d89a94e63d7bdc50a862acf0dbc7c8e488f1edcb6f5"
 
 [[package]]
 name = "youtube_dl"
-version = "0.7.0"
-source = "git+https://github.com/ticky/youtube-dl-rs?branch=yt-dlp-2023-compat#6235d000985bd705da37af9dd44a07cfda839afe"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd3525e9e8fe49f1c976a6d1ed2878b2637a0c1d202ef2a32529ad4b64f4b73f"
 dependencies = [
  "log",
  "serde",
