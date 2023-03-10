@@ -428,7 +428,7 @@ mod test {
             fragment_base_url: None,
             fragments: None,
             genre: None,
-            height: Some(1080,),
+            height: Some(1080.0),
             http_headers: None,
             id: "QWkUFkXcx9I".to_string(),
             is_live: Some(false),
@@ -480,7 +480,7 @@ mod test {
             vcodec: Some("avc1.640028".to_string()),
             view_count: Some(294645),
             webpage_url: Some("https://www.youtube.com/watch?v=QWkUFkXcx9I".to_string()),
-            width: Some(1920),
+            width: Some(1920.0),
             ..Default::default()
         }
     }
@@ -533,7 +533,7 @@ mod test {
             fragment_base_url: None,
             fragments: None,
             genre: None,
-            height: Some(1080,),
+            height: Some(1080.0),
             http_headers: None,
             id: "QWkUFkXcx9I".to_string(),
             is_live: Some(false),
@@ -585,7 +585,7 @@ mod test {
             vcodec: Some("avc1.640028".to_string()),
             view_count: Some(294645),
             webpage_url: Some("https://www.youtube.com/watch?v=QWkUFkXcx9I".to_string()),
-            width: Some(1920),
+            width: Some(1920.0),
             ..Default::default()
         }
     }
