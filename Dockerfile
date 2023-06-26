@@ -22,7 +22,7 @@ COPY src src
 RUN cargo install --path .
 
 # Now move over to our yt-dlp container
-FROM jauderho/yt-dlp:2023.03.04
+FROM jauderho/yt-dlp:2023.06.22
 
 # Copy in our freshly-baked binaries
 COPY --from=builder /usr/local/cargo/bin/* /usr/local/bin
