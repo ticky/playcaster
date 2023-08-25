@@ -3,7 +3,11 @@ FROM rust:alpine as builder
 WORKDIR /app
 
 RUN set -x && \
-	apk add --no-cache musl-dev
+	apk add --no-cache \
+		musl-dev \
+		pkgconfig \
+		openssl \
+		openssl-dev
 
 # Create the skeleton of a Rust app
 RUN cargo init
