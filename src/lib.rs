@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, TimeZone, Utc};
 
 use itertools::Itertools;
 
@@ -173,7 +173,7 @@ impl Channel {
                     };
 
                     let item_path = Path::new(&self.feed_file.parent().unwrap())
-                        .join(&self.feed_file.file_stem().unwrap())
+                        .join(self.feed_file.file_stem().unwrap())
                         .join(format!("{}.mp4", video.id));
 
                     if duration.is_zero() {
@@ -181,13 +181,12 @@ impl Channel {
                     }
 
                     let upload_date = video.upload_date.as_ref().map(|date| {
-                        DateTime::<Utc>::from_utc(
-                            NaiveDateTime::parse_from_str(
+                        Utc.from_utc_datetime(
+                            &NaiveDateTime::parse_from_str(
                                 &format!("{}T00:00Z", date),
                                 "%Y%m%dT%H:%MZ",
                             )
                             .unwrap_or_else(|error| panic!("Error: {} parsing {:?}", error, date)),
-                            Utc,
                         )
                         .to_rfc2822()
                     });
@@ -283,8 +282,7 @@ impl Channel {
                             .ok_or_else(|| Error::ParentPathError(self.feed_file.clone()))?,
                     )
                     .join(
-                        &self
-                            .feed_file
+                        self.feed_file
                             .file_stem()
                             .ok_or_else(|| Error::FileStemError(self.feed_file.clone()))?,
                     )
@@ -358,8 +356,7 @@ impl Channel {
                     .ok_or_else(|| Error::ParentPathError(self.feed_file.clone()))?,
             )
             .join(
-                &self
-                    .feed_file
+                self.feed_file
                     .file_stem()
                     .ok_or_else(|| Error::FileStemError(self.feed_file.clone()))?,
             )
