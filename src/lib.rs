@@ -223,6 +223,7 @@ impl Channel {
                     RSSItemBuilder::default()
                         .guid(RSSGuidBuilder::default().value(video.id.clone()).build())
                         .title(video.title.clone())
+                        .description(video.description.clone())
                         .link(video.webpage_url.clone())
                         .pub_date(upload_date)
                         .enclosure(item_enclosure)
