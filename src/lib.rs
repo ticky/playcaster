@@ -180,17 +180,6 @@ impl Channel {
                         zero_duration_item_paths.push(item_path);
                     }
 
-                    let upload_date = video.upload_date.as_ref().map(|date| {
-                        Utc.from_utc_datetime(
-                            &NaiveDateTime::parse_from_str(
-                                &format!("{}T00:00Z", date),
-                                "%Y%m%dT%H:%MZ",
-                            )
-                            .unwrap_or_else(|error| panic!("Error: {} parsing {:?}", error, date)),
-                        )
-                        .to_rfc2822()
-                    });
-
                     let item_itunes_extension = ITunesItemExtensionBuilder::default()
                         .author(title.clone())
                         .subtitle(video.title.clone())
@@ -199,6 +188,7 @@ impl Channel {
                         .duration(duration.hhmmss())
                         .explicit("No".to_string())
                         .build();
+
                     let item_enclosure = RSSEnclosureBuilder::default()
                         .url(
                             base_url
@@ -219,15 +209,47 @@ impl Channel {
                         .mime_type("video/mp4")
                         .build();
 
-                    RSSItemBuilder::default()
-                        .guid(RSSGuidBuilder::default().value(video.id.clone()).build())
+                    // video.release_date
+                    // video.upload_date
+
+                    let mut item = RSSItemBuilder::default();
+
+                    item.guid(RSSGuidBuilder::default().value(video.id.clone()).build())
                         .title(video.title.clone())
                         .description(video.description.clone())
                         .link(video.webpage_url.clone())
-                        .pub_date(upload_date)
                         .enclosure(item_enclosure)
-                        .itunes_ext(item_itunes_extension)
-                        .build()
+                        .itunes_ext(item_itunes_extension);
+
+                    if let Some(upload_date) = &video.upload_date {
+                        item.pub_date(
+                            Utc.from_utc_datetime(
+                                &NaiveDateTime::parse_from_str(
+                                    &format!("{}T00:00Z", upload_date),
+                                    "%Y%m%dT%H:%MZ",
+                                )
+                                .unwrap_or_else(|error| {
+                                    panic!("Error: {} parsing {:?}", error, upload_date)
+                                }),
+                            )
+                            .to_rfc2822(),
+                        );
+                    } else if let Some(release_date) = &video.release_date {
+                        item.pub_date(
+                            Utc.from_utc_datetime(
+                                &NaiveDateTime::parse_from_str(
+                                    &format!("{}T00:00Z", release_date),
+                                    "%Y%m%dT%H:%MZ",
+                                )
+                                .unwrap_or_else(|error| {
+                                    panic!("Error: {} parsing {:?}", error, release_date)
+                                }),
+                            )
+                            .to_rfc2822(),
+                        );
+                    }
+
+                    item.build()
                 })
                 .collect(),
             None => vec![],
