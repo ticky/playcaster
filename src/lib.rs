@@ -321,7 +321,7 @@ impl Channel {
         if let Some(ref mut channel_itunes_ext) = rss_channel.itunes_ext {
             for item in &unique_items {
                 if let Some(ref item_ext) = item.itunes_ext {
-                    channel_itunes_ext.image = item_ext.image.clone();
+                    channel_itunes_ext.image.clone_from(&item_ext.image);
                     break;
                 }
             }
