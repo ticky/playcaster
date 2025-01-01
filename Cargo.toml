@@ -16,7 +16,7 @@ chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 env_logger = "0.11"
 hhmmss = "0.1"
-itertools = "0.13"
+itertools = "0.14"
 log = "0.4"
 rss = { version = "2.0", features = ["validation"] }
 serde = "1.0"
